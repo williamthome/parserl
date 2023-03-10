@@ -18,44 +18,57 @@ parse_transform(Forms, _Options) ->
             ["compile() ->",
              "    {ok, _@eel_module} =",
              "        case render_defs(#{}) of",
-             "            {{html, Html0}, _} ->",
-             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),"
-             "                eel:compile_to_module(Html, _@eel_module);",
              "            {{html, Html0, Opts}, _} ->",
-             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),"
+             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),",
              "                eel:compile_to_module(Html, _@eel_module, Opts);",
-             "            {{file, Filename}, _} ->",
-             "                eel:compile_file_to_module(Filename, _@eel_module);",
+             "            {{html, Html0}, _} ->",
+             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),",
+             "                eel:compile_to_module(Html, _@eel_module);",
              "            {{file, Filename, Opts}, _} ->",
-             "                eel:compile_file_to_module(Filename, _@eel_module, Opts)",
+             "                eel:compile_file_to_module(Filename, _@eel_module, Opts);",
+             "            {{file, Filename}, _} ->",
+             "                eel:compile_file_to_module(Filename, _@eel_module)",
              "        end,",
              "    ok."],
-            #{eel_module => EElModule}),
+            #{env => #{eel_module => EElModule}}),
 
         parserl_trans:replace_function(
             "render(Bindings) -> render(Bindings, #{}).",
-            #{}, #{rename_original => render_defs}),
+            #{rename_original => render_defs}),
 
         parserl_trans:unexport_function(render_defs),
 
         parserl_trans:insert_function(
-            ["render(Bindings0, Opts) ->",
+            ["render(Bindings0, Opts) when is_map(Opts) ->",
              "    {_, Bindings} = render_defs(Bindings0),",
-             "    _@eel_module:render(Bindings, Opts)."],
-            #{eel_module => EElModule}, [export]),
+             "    _@eel_module:render(Bindings, Opts);",
+             "render(Bindings, Snapshot) ->",
+             "    render(Bindings, Snapshot, #{})."],
+            #{env => #{eel_module => EElModule}, export => true}),
+
+        parserl_trans:insert_function(
+            ["render(Bindings0, Snapshot, Opts) ->",
+             "    {_, Bindings} = render_defs(Bindings0),",
+             "    _@eel_module:render(Bindings, Snapshot, Opts)."],
+            #{env => #{eel_module => EElModule}, export => true}),
+
+        parserl_trans:insert_function(
+            ["static() ->",
+             "    _@eel_module:static()."],
+            #{env => #{eel_module => EElModule}, export => true}),
 
         parserl_trans:if_false(
-            parserl_trans:function_exists(mount, 2),
+            parserl_trans:function_exists({mount, 2}),
             parserl_trans:insert_function(
                 "mount(_Params, Socket) -> {ok, Socket}.",
-                #{}, [export])
+                [export])
         ),
 
         parserl_trans:if_false(
-            parserl_trans:function_exists(handle_params, 2),
+            parserl_trans:function_exists({handle_params, 2}),
             parserl_trans:insert_function(
                 "handle_params(_Params, Socket) -> {noreply, Socket}.",
-                #{}, [export])
+                [export])
         ),
 
         parserl_trans:debug()

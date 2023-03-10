@@ -1,13 +1,13 @@
 -module(parserl).
 
 %% API
--export([quote/1, quote/2, unquote/1, unquote/2, insert_above/2, insert_below/2,
-         insert_attribute/2, insert_attribute/3, remove_attribute/2,
-         insert_function/2, insert_function/3, insert_function/4,
-         replace_function/2, replace_function/3, replace_function/4,
-         export_function/3, unexport_function/2, unexport_function/3,
-         find_function/3, function_exists/3, foldl/2, debug/1, revert/1,
-         write_file/2, get_module/1, module_prefix/2, module_suffix/2]).
+-export([ quote/1, quote/2, unquote/1, unquote/2, insert_above/2, insert_below/2
+        , insert_attribute/2, insert_attribute/3, remove_attribute/2
+        , insert_function/2, insert_function/3, replace_function/2
+        , replace_function/3, export_function/3, unexport_function/2
+        , unexport_function/3, find_function/3, function_exists/3, debug/1
+        , revert/1, write_file/2, get_module/1, module_prefix/2
+        , module_suffix/2 ]).
 
 -include_lib("syntax_tools/include/merl.hrl").
 
@@ -73,10 +73,10 @@ insert_below(Form, [F | Rest]) ->
     end.
 
 insert_attribute(Text, Forms) ->
-    insert_attribute(Text, [], Forms).
+    insert_attribute(Text, Forms, []).
 
-insert_attribute(Text, Env, Forms) ->
-    Abstract = quote(Text, Env),
+insert_attribute(Text, Forms, Opts) ->
+    Abstract = quote(Text, get_env(Opts)),
     insert_above(Abstract, Forms).
 
 remove_attribute(Name, Forms) ->
@@ -85,17 +85,14 @@ remove_attribute(Name, Forms) ->
         Forms
     ).
 
-insert_function(Text, Forms0) ->
-    insert_function(Text, [], Forms0).
+insert_function(Text, Forms) ->
+    insert_function(Text, Forms, []).
 
-insert_function(Text, Env, Forms0) ->
-    insert_function(Text, Env, Forms0, []).
-
-insert_function(Text0, Env, Forms0, Opts) ->
+insert_function(Text0, Forms0, Opts) ->
     Text = flatten_text(Text0),
     Name = guess_fun_name(Text),
     Arity = guess_fun_arity(Text),
-    Abstract = quote(Text, Env),
+    Abstract = quote(Text, get_env(Opts)),
     Forms = insert_below(Abstract, Forms0),
     case get_value(export, Opts, false) of
         true ->
@@ -106,17 +103,15 @@ insert_function(Text0, Env, Forms0, Opts) ->
     end.
 
 replace_function(Text, Forms) ->
-    replace_function(Text, [], Forms).
+    replace_function(Text, Forms, []).
 
-replace_function(Text, Env, Forms) ->
-    replace_function(Text, Env, Forms, []).
-
-replace_function(Text, Env, Forms0, Opts) ->
+replace_function(Text, Forms0, Opts) ->
     Body = flatten_text(Text),
     Name = guess_fun_name(Body),
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
-    Form = quote(Text, Env),
-    Forms = parse_trans:replace_function(Name, Arity, Form, Forms0, proplist(Opts)),
+    Form = quote(Text, get_env(Opts)),
+    Forms = parse_trans:replace_function(Name, Arity, Form,
+                                         Forms0, proplist(Opts)),
     case get_value(export, Opts, false) of
         true ->
             export_function(Name, Arity, Forms);
@@ -180,9 +175,6 @@ function_exists(Name, Arity, Forms) ->
             false
     end.
 
-foldl(TransFuns, Forms) ->
-    lists:foldl(fun(T, F) when is_function(T, 1) -> T(F) end, Forms, TransFuns).
-
 pprint(Forms) ->
     unicode:characters_to_nfc_binary(io_lib:format("~s~n", [
         lists:flatten([erl_pp:form(F) || F <- revert(Forms)])
@@ -227,6 +219,9 @@ flatten_text(Text) when is_binary(Text) ->
 flatten_text(Text) ->
     Text.
 
+get_env(Opts) ->
+    get_value(env, Opts, []).
+
 env_to_abstract(Env) ->
     env_to_abstract(Env, []).
 
@@ -251,10 +246,10 @@ to_abstract(Term) ->
     erl_syntax:abstract(Term).
 
 quote_error(Text, Env, Reason, Stacktrace) ->
-    error({quote, [{text, Text},
-                   {env, Env},
-                   {reason, Reason},
-                   {stacktrace, Stacktrace}]}).
+    error({quote, [ {text, Text}
+                  , {env, Env}
+                  , {reason, Reason}
+                  , {stacktrace, Stacktrace} ]}).
 
 guess_fun_name(Text) ->
     guess_fun_name(Text, []).
