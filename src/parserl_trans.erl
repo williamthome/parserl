@@ -232,4 +232,6 @@ foreach(Predicate, List) ->
 resolve(Forms, Context, TransFun) when is_function(TransFun, 2) ->
     TransFun(Forms, Context);
 resolve(Forms, Context, TransFuns) when is_list(TransFuns) ->
-    form(Forms, Context, TransFuns).
+    lists:foldl(fun(TransFun, {F, C}) -> resolve(F, C, TransFun) end,
+                {Forms, Context},
+                TransFuns).
