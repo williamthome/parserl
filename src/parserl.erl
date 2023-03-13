@@ -7,7 +7,7 @@
         , insert_function/2, insert_function/3, replace_function/2
         , replace_function/3, export_function/3, unexport_function/2
         , unexport_function/3, find_function/3, function_exists/3, debug/1
-        , revert/1, write_file/2, get_module/1, module_prefix/2
+        , normalize/1, write_file/2, get_module/1, module_prefix/2
         , module_suffix/2 ]).
 
 -include_lib("syntax_tools/include/merl.hrl").
@@ -197,18 +197,18 @@ function_exists(Name, Arity, Forms) ->
 
 pprint(Forms) ->
     unicode:characters_to_nfc_binary(io_lib:format("~s~n", [
-        lists:flatten([erl_pp:form(F) || F <- revert(Forms)])
+        lists:flatten([erl_pp:form(F) || F <- normalize(Forms)])
     ])).
 
 debug(Forms) ->
     io:format("~s~n", [pprint(Forms)]),
     Forms.
 
-revert(Forms) when is_list(Forms) ->
+normalize(Forms) when is_list(Forms) ->
     epp:restore_typed_record_fields(
         [erl_syntax:revert(T) || T <- lists:flatten(Forms)]);
-revert(Forms) when is_tuple(Forms) ->
-    revert([Forms]).
+normalize(Forms) when is_tuple(Forms) ->
+    normalize([Forms]).
 
 write_file(Filename, Forms) ->
     file:write_file(Filename, pprint(Forms)).

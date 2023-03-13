@@ -210,7 +210,7 @@ if_else(BoolFun, IfTrue, IfFalse) ->
 
 normalize() ->
     fun(Forms, _) ->
-        parserl:revert(Forms)
+        parserl:normalize(Forms)
     end.
 
 foreach(Predicate, List) ->
