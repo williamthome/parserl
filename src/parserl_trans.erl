@@ -6,7 +6,7 @@
         , insert_function/1, insert_function/2, replace_function/1
         , replace_function/2, export_function/1, unexport_function/1
         , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
-        , normalize/0 ]).
+        , if_else/3, normalize/0 ]).
 
 %%%=============================================================================
 %%% API
@@ -176,6 +176,25 @@ if_false(BoolFun, Unresolved) ->
 
             {true, Context} ->
                 {Forms, Context}
+        end
+    end.
+
+if_else(true, Unresolved, _) ->
+    fun(Forms, Context) ->
+        resolve(Forms, Context, Unresolved)
+    end;
+if_else(false, _, Unresolved) ->
+    fun(Forms, Context) ->
+        resolve(Forms, Context, Unresolved)
+    end;
+if_else(BoolFun, IfTrue, IfFalse) ->
+    fun(Forms, Context0) ->
+        case BoolFun(Forms, Context0) of
+            {true, Context} ->
+                resolve(Forms, Context, IfTrue);
+
+            {false, Context} ->
+                resolve(Forms, Context, IfFalse)
         end
     end.
 
