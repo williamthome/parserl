@@ -8,7 +8,7 @@
         , replace_function/3, export_function/3, unexport_function/2
         , unexport_function/3, find_function/3, function_exists/3, debug/1
         , normalize/1, write_file/2, get_module/1, module_prefix/2
-        , module_suffix/2 ]).
+        , module_suffix/2, eval/1, eval/2 ]).
 
 -include_lib("syntax_tools/include/merl.hrl").
 
@@ -225,6 +225,14 @@ module_suffix(Suffix, Forms) when is_list(Suffix); is_binary(Suffix) ->
     iolist_to_binary([atom_to_binary(parse_trans:get_module(Forms)), Suffix]);
 module_suffix(Suffix, Forms) when is_atom(Suffix) ->
     module_suffix(atom_to_binary(Suffix), Forms).
+
+eval(Forms) ->
+    eval(Forms, []).
+
+eval(Forms, Bindings) ->
+    {value, Value, _NewBindings} = erl_eval:exprs(parserl:normalize(Forms),
+                                                  Bindings),
+    Value.
 
 %%%=============================================================================
 %%% Internal functions
