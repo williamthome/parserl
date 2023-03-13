@@ -3,11 +3,12 @@
 %% API
 -export([ quote/1, quote/2, unquote/1, unquote/2, insert_above/2, insert_below/2
         , insert_attribute/2, insert_attribute/3, remove_attribute/2
-        , find_attribute/2, find_all_attributes/2, insert_function/2
-        , insert_function/3, replace_function/2 , replace_function/3
-        , export_function/3, unexport_function/2, unexport_function/3
-        , find_function/3, function_exists/3, debug/1, revert/1, write_file/2
-        , get_module/1, module_prefix/2, module_suffix/2 ]).
+        , find_attribute/2, find_all_attributes/2, attribute_exists/2
+        , insert_function/2, insert_function/3, replace_function/2
+        , replace_function/3, export_function/3, unexport_function/2
+        , unexport_function/3, find_function/3, function_exists/3, debug/1
+        , revert/1, write_file/2, get_module/1, module_prefix/2
+        , module_suffix/2 ]).
 
 -include_lib("syntax_tools/include/merl.hrl").
 
@@ -94,6 +95,15 @@ find_attribute(_, []) ->
 
 find_all_attributes(Name, Forms) ->
     find_all_attributes(Name, Forms, []).
+
+attribute_exists(Name, Forms) ->
+    case find_attribute(Name, Forms) of
+        {true, _} ->
+            true;
+
+        false ->
+            false
+    end.
 
 insert_function(Text, Forms) ->
     insert_function(Text, Forms, []).

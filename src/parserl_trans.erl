@@ -3,10 +3,10 @@
 %% API
 -export([ form/2, form/3, insert_above/1, insert_below/1
         , insert_attribute/1, insert_attribute/2, remove_attribute/1
-        , insert_function/1, insert_function/2, replace_function/1
-        , replace_function/2, export_function/1, unexport_function/1
-        , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, normalize/0 ]).
+        , attribute_exists/1, insert_function/1, insert_function/2
+        , replace_function/1, replace_function/2, export_function/1
+        , unexport_function/1, function_exists/1, debug/0, write_file/1
+        , if_true/2, if_false/2, if_else/3, normalize/0 ]).
 
 %%%=============================================================================
 %%% API
@@ -60,6 +60,16 @@ remove_attribute(Fun) when is_function(Fun, 1) ->
 remove_attribute(Name) ->
     fun(Forms, Context) ->
         {parserl:remove_attribute(Name, Forms), Context}
+    end.
+
+attribute_exists(Fun) when is_function(Fun, 1) ->
+    fun(Forms, Context0) ->
+        {Name, Context} = Fun(Context0),
+        {parserl:attribute_exists(Name, Forms), Context}
+    end;
+attribute_exists(Name) ->
+    fun(Forms, Context) ->
+        {parserl:attribute_exists(Name, Forms), Context}
     end.
 
 insert_function(FunOrText) ->
