@@ -11,7 +11,7 @@ Example:
 
 parse_transform(Forms, _Options) ->
     EElModule = binary_to_atom(parserl:module_suffix("_eel", Forms)),
-    parserl_trans:transform(Forms, [
+    parserl_trans:form(Forms, [
         parserl_trans:insert_attribute("-on_load(compile/0)."),
 
         parserl_trans:insert_function(

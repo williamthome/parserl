@@ -1,7 +1,7 @@
 -module(parserl_trans).
 
 %% API
--export([ transform/2, transform/3, insert_above/1, insert_below/1
+-export([ form/2, form/3, insert_above/1, insert_below/1
         , insert_attribute/1, insert_attribute/2, remove_attribute/1
         , insert_function/1, insert_function/2, replace_function/1
         , replace_function/2, export_function/1, unexport_function/1
@@ -12,10 +12,10 @@
 %%% API
 %%%=============================================================================
 
-transform(Forms, TransFuns) ->
-    transform(Forms, undefined, TransFuns).
+form(Forms, TransFuns) ->
+    form(Forms, undefined, TransFuns).
 
-transform(Forms, Context, TransFuns) ->
+form(Forms, Context, TransFuns) ->
     lists:foldl(fun(T, {F, C}) when is_function(T, 2) -> T(F, C) end,
                 {Forms, Context}, TransFuns ++ [normalize()]).
 
@@ -191,4 +191,4 @@ normalize() ->
 resolve(Forms, Context, TransFun) when is_function(TransFun, 2) ->
     TransFun(Forms, Context);
 resolve(Forms, Context, TransFuns) when is_list(TransFuns) ->
-    transform(Forms, Context, TransFuns).
+    form(Forms, Context, TransFuns).
