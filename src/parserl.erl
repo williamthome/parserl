@@ -238,12 +238,12 @@ eval(Forms, Bindings) ->
 %%% Internal functions
 %%%=============================================================================
 
-find_all_attributes(Name, [{attribute, _, Name, _} = Attr | _], Acc) ->
-    [Attr | Acc];
+find_all_attributes(Name, [{attribute, _, Name, _} = Attr | T], Acc) ->
+    find_all_attributes(Name, T, [Attr | Acc]);
 find_all_attributes(Name, [_ | T], Acc) ->
     find_all_attributes(Name, T, Acc);
 find_all_attributes(_, [], Acc) ->
-    Acc.
+    lists:reverse(Acc).
 
 
 flatten_text([L | _] = Lines) when is_list(L) ->
