@@ -208,14 +208,14 @@ if_else(BoolFun, IfTrue, IfFalse) ->
         end
     end.
 
-%%%=============================================================================
-%%% Internal functions
-%%%=============================================================================
-
 normalize() ->
     fun(Forms, _) ->
         parserl:revert(Forms)
     end.
+
+%%%=============================================================================
+%%% Internal functions
+%%%=============================================================================
 
 resolve(Forms, Context, TransFun) when is_function(TransFun, 2) ->
     TransFun(Forms, Context);
