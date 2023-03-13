@@ -6,7 +6,7 @@
         , attribute_exists/1, insert_function/1, insert_function/2
         , replace_function/1, replace_function/2, export_function/1
         , unexport_function/1, function_exists/1, debug/0, write_file/1
-        , if_true/2, if_false/2, if_else/3, normalize/0 ]).
+        , if_true/2, if_false/2, if_else/3, normalize/0, foreach/2 ]).
 
 %%%=============================================================================
 %%% API
@@ -211,6 +211,18 @@ if_else(BoolFun, IfTrue, IfFalse) ->
 normalize() ->
     fun(Forms, _) ->
         parserl:revert(Forms)
+    end.
+
+foreach(Predicate, List) ->
+    fun(Forms, Context) ->
+        lists:foldl(
+            fun(Term, Acc) ->
+                Unresolved = Predicate(Term),
+                resolve(Acc, Context, Unresolved)
+            end,
+            Forms,
+            List
+        )
     end.
 
 %%%=============================================================================
