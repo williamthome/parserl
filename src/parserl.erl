@@ -110,7 +110,7 @@ insert_function(Text, Forms) ->
 
 insert_function(Text0, Forms0, Opts) ->
     Text = flatten_text(Text0),
-    Name = guess_fun_name(Text),
+    Name = guess_fun_name(Text, Opts),
     Arity = guess_fun_arity(Text),
     Abstract = quote(Text, get_env(Opts)),
     Forms = insert_below(Abstract, Forms0),
@@ -127,7 +127,7 @@ replace_function(Text, Forms) ->
 
 replace_function(Text, Forms0, Opts) ->
     Body = flatten_text(Text),
-    Name = guess_fun_name(Body),
+    Name = guess_fun_name(Body, Opts),
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
     Form = quote(Text, get_env(Opts)),
     Forms = parse_trans:replace_function(Name, Arity, Form,
@@ -287,15 +287,24 @@ quote_error(Text, Env, Reason, Stacktrace) ->
                   , {reason, Reason}
                   , {stacktrace, Stacktrace} ]}).
 
-guess_fun_name(Text) ->
-    guess_fun_name(Text, []).
+guess_fun_name([$', $@ | FunName], Opts) ->
+    Env = get_env(Opts),
+    lookup(guess_env_fun_name(FunName, []), Env);
+guess_fun_name(Text, _) ->
+    do_guess_fun_name(Text, []).
 
-guess_fun_name([$( | _], Acc) ->
+guess_env_fun_name([$' | _], Acc) ->
+    erlang:list_to_existing_atom(lists:reverse(Acc));
+guess_env_fun_name([H | T], Acc) ->
+    guess_env_fun_name(T, [H | Acc]).
+
+% TODO: Should use list_to_existing_atom?
+do_guess_fun_name([$( | _], Acc) ->
     erlang:list_to_atom(lists:reverse(Acc));
-guess_fun_name([32 | T], []) ->
-    guess_fun_name(T, []);
-guess_fun_name([H | T], Acc) ->
-    guess_fun_name(T, [H | Acc]).
+do_guess_fun_name([32 | T], []) ->
+    do_guess_fun_name(T, []);
+do_guess_fun_name([H | T], Acc) ->
+    do_guess_fun_name(T, [H | Acc]).
 
 guess_fun_arity(Text) ->
     guess_fun_arity(Text, 0, 0).
@@ -333,6 +342,12 @@ get_value(Key, Proplist, Default) when is_list(Proplist) ->
     proplists:get_value(Key, Proplist, Default);
 get_value(Key, Map, Default) when is_map(Map) ->
     maps:get(Key, Map, Default).
+
+lookup(Key, Proplist) when is_list(Proplist) ->
+    {Key, Value} = proplists:lookup(Key, Proplist),
+    Value;
+lookup(Key, Map) when is_map(Map) ->
+    maps:get(Key, Map).
 
 proplist(Proplist) when is_list(Proplist) ->
     proplists:unfold(Proplist);
