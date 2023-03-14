@@ -55,8 +55,8 @@ insert_above(Form, Forms0) when is_list(Form) ->
                 {F, false, Acc} end,
         false, Forms0, Context),
     Forms;
-insert_above(Form, Forms0) when is_tuple(Form) ->
-    insert_above([Form], Forms0).
+insert_above(Form, Forms) when is_tuple(Form) ->
+    insert_above([Form], Forms).
 
 insert_below(Form, [F | Rest]) ->
     case erl_syntax:type(F) of
