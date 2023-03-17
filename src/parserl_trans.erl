@@ -229,6 +229,10 @@ foreach(Predicate, List) ->
 %%% Internal functions
 %%%=============================================================================
 
+
+resolve({Forms, Context}, _, TransFun) ->
+    % Resolves foreach result
+    resolve(Forms, Context, TransFun);
 resolve(Forms, Context, TransFun) when is_function(TransFun, 2) ->
     TransFun(Forms, Context);
 resolve(Forms, Context, TransFuns) when is_list(TransFuns) ->
