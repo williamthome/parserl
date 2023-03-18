@@ -120,12 +120,28 @@ insert_function(Text0, Forms0, Opts) ->
     Arity = guess_fun_arity(Text),
     case function_exists(Name, Arity, Forms0) of
         true ->
+            %% TODO: Optionally log warnings or throw exception
             logger:warning(#{
                 text => "Function already defined",
                 name => Name,
                 arity => Arity
             }),
-            Forms0;
+            lists:map(
+                fun(Form) ->
+                    case is_function(Name, Arity, Form) of
+                        true ->
+                            Fun = erl_syntax:revert(Form),
+                            Tmp = erl_syntax:revert(quote(Text, get_env(Opts))),
+                            NewClauses = erl_syntax:function_clauses(Tmp),
+                            IfExistsOpts = get_value(if_exists, Opts, []),
+                            attach_clauses(Fun, NewClauses, IfExistsOpts);
+
+                        false ->
+                            Form
+                    end
+                end,
+                Forms0
+            );
 
         false ->
             Abstract = quote(Text, get_env(Opts)),
@@ -148,6 +164,7 @@ replace_function(Text, Forms0, Opts) ->
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
     case not function_exists(Name, Arity, Forms0) of
         true ->
+            %% TODO: Optionally log warnings or throw exception
             logger:warning(#{
                 text => "Function not defined",
                 name => Name,
@@ -171,6 +188,7 @@ replace_function(Text, Forms0, Opts) ->
 export_function(Name, Arity, Forms) ->
     case is_function_exported(Name, Arity, Forms) of
         true ->
+            %% TODO: Optionally log warnings or throw exception
             logger:warning(#{
                 text => <<"Function already exported">>,
                 name => Name,
@@ -449,3 +467,14 @@ is_function(Name, Arity, Form) ->
     erl_syntax:type(Form) =:= function
     andalso erl_syntax:atom_value(erl_syntax:function_name(Form)) =:= Name
     andalso erl_syntax:function_arity(Form) =:= Arity.
+
+attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
+    Clauses =
+        case get_value(attach, Opts, append) of
+            append ->
+                OldClauses ++ NewClauses;
+
+            prepend ->
+                NewClauses ++ OldClauses
+        end,
+    {function, Pos, Name, Arity, Clauses}.
