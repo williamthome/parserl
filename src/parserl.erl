@@ -79,7 +79,7 @@ remove_attribute(Name, Forms) ->
         fun(Form) ->
             case is_attribute(Name, Form) of
                 true ->
-                    erl_syntax:attribute_name(Form) =/= Name;
+                    erl_syntax:atom_value(erl_syntax:attribute_name(Form)) =/= Name;
 
                 false ->
                     true
