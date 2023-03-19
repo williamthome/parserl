@@ -5,8 +5,9 @@
         , insert_attribute/1, insert_attribute/2, remove_attribute/1
         , attribute_exists/1, insert_function/1, insert_function/2
         , replace_function/1, replace_function/2, export_function/1
-        , unexport_function/1, function_exists/1, debug/0, write_file/1
-        , if_true/2, if_false/2, if_else/3, normalize/0, foreach/2 ]).
+        , export_function/2, unexport_function/1, unexport_function/2
+        , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
+        , if_else/3, normalize/0, foreach/2 ]).
 
 %%%=============================================================================
 %%% API
@@ -98,32 +99,38 @@ replace_function(Text, Opts) ->
         {parserl:replace_function(Text, Forms, Opts), Context}
     end.
 
-export_function(Fun) when is_function(Fun, 1) ->
+export_function(Fun) ->
+    export_function(Fun, #{}).
+
+export_function(Fun, Opts) when is_function(Fun, 1) ->
     fun(Forms, Context0) ->
         {{Name, Arity}, Context} = Fun(Context0),
-        {parserl:export_function(Name, Arity, Forms), Context}
+        {parserl:export_function(Name, Arity, Forms, Opts), Context}
     end;
-export_function({Name, Arity}) ->
+export_function({Name, Arity}, Opts) ->
     fun(Forms, Context) ->
-        {parserl:export_function(Name, Arity, Forms), Context}
+        {parserl:export_function(Name, Arity, Forms, Opts), Context}
     end.
 
-unexport_function(Fun) when is_function(Fun, 1) ->
+unexport_function(Fun) ->
+    unexport_function(Fun, #{}).
+
+unexport_function(Fun, Opts) when is_function(Fun, 1) ->
     fun(Forms, Context0) ->
         case Fun(Context0) of
             {{Name, Arity}, Context} ->
-                {parserl:unexport_function(Name, Arity, Forms), Context};
+                {parserl:unexport_function(Name, Arity, Forms, Opts), Context};
             {Name, Context} ->
-                {parserl:unexport_function(Name, Forms), Context}
+                {parserl:unexport_function(Name, Forms, Opts), Context}
         end
     end;
-unexport_function({Name, Arity}) ->
+unexport_function({Name, Arity}, Opts) ->
     fun(Forms, Context) ->
-        {parserl:unexport_function(Name, Arity, Forms), Context}
+        {parserl:unexport_function(Name, Arity, Forms, Opts), Context}
     end;
-unexport_function(Name) ->
+unexport_function(Name, Opts) ->
     fun(Forms, Context) ->
-        {parserl:unexport_function(Name, Forms), Context}
+        {parserl:unexport_function(Name, Forms, Opts), Context}
     end.
 
 function_exists(Fun) when is_function(Fun, 1) ->
@@ -134,6 +141,10 @@ function_exists(Fun) when is_function(Fun, 1) ->
 function_exists({Name, Arity}) ->
     fun(Forms, Context) ->
         {parserl:function_exists(Name, Arity, Forms), Context}
+    end;
+function_exists(Name) ->
+    fun(Forms, Context) ->
+        {parserl:function_exists(Name, Forms), Context}
     end.
 
 debug() ->

@@ -5,8 +5,9 @@
         , insert_attribute/2, insert_attribute/3, remove_attribute/2
         , find_attribute/2, find_all_attributes/2, attribute_exists/2
         , insert_function/2, insert_function/3, replace_function/2
-        , replace_function/3, export_function/3, unexport_function/2
-        , unexport_function/3, is_function_exported/3, find_function/3
+        , replace_function/3, export_function/3, export_function/4
+        , unexport_function/2, unexport_function/3, unexport_function/4
+        , is_function_exported/2, is_function_exported/3, find_function/3
         , function_exists/3, debug/1, normalize/1, write_file/2, get_module/1
         , module_prefix/2, module_suffix/2, eval/1, eval/2 ]).
 
@@ -120,12 +121,6 @@ insert_function(Text0, Forms0, Opts) ->
     Arity = guess_fun_arity(Text),
     case function_exists(Name, Arity, Forms0) of
         true ->
-            %% TODO: Optionally log warnings or throw exception
-            logger:warning(#{
-                text => "Function already defined",
-                name => Name,
-                arity => Arity
-            }),
             lists:map(
                 fun(Form) ->
                     case is_function(Name, Arity, Form) of
@@ -133,8 +128,7 @@ insert_function(Text0, Forms0, Opts) ->
                             Fun = erl_syntax:revert(Form),
                             Tmp = erl_syntax:revert(quote(Text, get_env(Opts))),
                             NewClauses = erl_syntax:function_clauses(Tmp),
-                            IfExistsOpts = get_value(if_exists, Opts, []),
-                            attach_clauses(Fun, NewClauses, IfExistsOpts);
+                            attach_clauses(Fun, NewClauses, Opts);
 
                         false ->
                             Form
@@ -148,7 +142,7 @@ insert_function(Text0, Forms0, Opts) ->
             Forms = insert_below(Abstract, Forms0),
             case get_value(export, Opts, false) of
                 true ->
-                    export_function(Name, Arity, Forms);
+                    export_function(Name, Arity, Forms, Opts);
 
                 false ->
                     Forms
@@ -162,93 +156,140 @@ replace_function(Text, Forms0, Opts) ->
     Body = flatten_text(Text),
     Name = guess_fun_name(Body, Opts),
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
-    case not function_exists(Name, Arity, Forms0) of
+    case function_exists(Name, Arity, Forms0) of
         true ->
-            %% TODO: Optionally log warnings or throw exception
-            logger:warning(#{
-                text => "Function not defined",
-                name => Name,
-                arity => Arity
-            }),
-            Forms0;
-
-        false ->
             Form = quote(Text, get_env(Opts)),
             Forms = parse_trans:replace_function(Name, Arity, Form,
                                                  Forms0, proplist(Opts)),
             case get_value(export, Opts, false) of
                 true ->
-                    export_function(Name, Arity, Forms);
+                    export_function(Name, Arity, Forms, Opts);
 
                 false ->
                     Forms
-            end
+            end;
+
+        false ->
+            log_or_raise( function_not_defined
+                        , #{ text => <<"Function not defined">>
+                        , name => Name
+                        , arity => Arity }
+                        , Opts ),
+            Forms0
     end.
 
 export_function(Name, Arity, Forms) ->
-    case is_function_exported(Name, Arity, Forms) of
+    export_function(Name, Arity, Forms, #{}).
+
+export_function(Name, Arity, Forms, Opts) ->
+    case not is_function_exported(Name, Arity, Forms) of
         true ->
-            %% TODO: Optionally log warnings or throw exception
-            logger:warning(#{
-                text => <<"Function already exported">>,
-                name => Name,
-                arity => Arity
-            }),
-            Forms;
+            parse_trans:export_function(Name, Arity, Forms);
 
         false ->
-            parse_trans:export_function(Name, Arity, Forms)
+            log_or_raise( function_already_exported
+                        , #{ text => <<"Function already exported">>
+                           , name => Name
+                           , arity => Arity }
+                        , Opts ),
+            Forms
     end.
 
 unexport_function(Name, Forms) ->
-    lists:filtermap(
-        fun(Form) ->
-            case is_attribute(Name, Form) of
-                true ->
-                    %% TODO: Match using erl_syntax
-                    {attribute, _, export, Funs0} = Form,
-                    case lists:filter(fun({N, _}) -> N =/= Name end, Funs0) of
-                        [] ->
-                            false;
+    unexport_function(Name, Forms, #{}).
 
-                        Funs ->
-                            Pos = erl_syntax:get_pos(Form),
-                            %% TODO: Construct export attr using erl_syntax
-                            {true, {attribute, Pos, export, Funs}}
-                    end;
+unexport_function(Name, Arity, Forms) when is_integer(Arity) ->
+    unexport_function(Name, Arity, Forms, #{});
+unexport_function(Name, Forms, Opts) ->
+    case is_function_exported(Name, Forms) of
+        true ->
+            lists:filtermap(
+                fun(Form) ->
+                    case is_attribute(Name, Form) of
+                        true ->
+                            %% TODO: Match using erl_syntax
+                            {attribute, _, export, Funs0} = Form,
+                            case lists:filter(fun({N, _}) -> N =/= Name end, Funs0) of
+                                [] ->
+                                    false;
+
+                                Funs ->
+                                    Pos = erl_syntax:get_pos(Form),
+                                    %% TODO: Construct export attr using erl_syntax
+                                    {true, {attribute, Pos, export, Funs}}
+                            end;
+
+                        false ->
+                            {true, Form}
+                    end
+                end,
+                Forms
+            );
+
+        false ->
+            log_or_raise( function_already_exported
+                        , #{ text => <<"Function not exported">>
+                           , name => Name }
+                        , Opts ),
+            Forms
+    end.
+
+unexport_function(Name, Arity, Forms, Opts) ->
+    case is_function_exported(Name, Arity, Forms) of
+        true ->
+            lists:filtermap(
+                fun(Form) ->
+                    case is_attribute(export, Form) of
+                        true ->
+                            %% TODO: Match using erl_syntax
+                            {attribute, _, export, Funs0} = Form,
+                            case lists:filter(fun({N, A}) -> N =/= Name orelse
+                                                            A =/= Arity end, Funs0)
+                            of
+                                [] ->
+                                    false;
+
+                                Funs ->
+                                    Pos = erl_syntax:get_pos(Form),
+                                    %% TODO: Construct export attr using erl_syntax
+                                    {true, {attribute, Pos, export, Funs}}
+                            end;
+
+                        false ->
+                            {true, Form}
+                    end
+                end,
+                Forms
+            );
+
+        false ->
+            log_or_raise( function_already_exported
+                        , #{ text => <<"Function not exported">>
+                           , name => Name
+                           , arity => Arity }
+                        , Opts ),
+            Forms
+    end.
+
+is_function_exported(_, [{eof, _}]) ->
+    false;
+is_function_exported(Name, [Form | Forms]) ->
+    case is_attribute(export, Form) of
+        true ->
+            %% TODO: Match using erl_syntax
+            {attribute, _, export, Funs} = Form,
+            case lists:any(fun({N, _}) -> N =:= Name end, Funs)
+            of
+                true ->
+                    true;
 
                 false ->
-                    {true, Form}
-            end
-        end,
-        Forms
-    ).
+                    is_function_exported(Name, Forms)
+            end;
 
-unexport_function(Name, Arity, Forms) ->
-    lists:filtermap(
-        fun(Form) ->
-            case is_attribute(export, Form) of
-                true ->
-                    %% TODO: Match using erl_syntax
-                    {attribute, _, export, Funs0} = Form,
-                    case lists:filter(fun({N, A}) -> N =/= Name orelse
-                                                     A =/= Arity end, Funs0)
-                    of
-                        [] ->
-                            false;
-
-                        Funs ->
-                            Pos = erl_syntax:get_pos(Form),
-                            %% TODO: Construct export attr using erl_syntax
-                            {true, {attribute, Pos, export, Funs}}
-                    end;
-
-                false ->
-                    {true, Form}
-            end
-        end,
-        Forms
-    ).
+        false ->
+            is_function_exported(Name, Forms)
+    end.
 
 is_function_exported(_, _, [{eof, _}]) ->
     false;
@@ -448,6 +489,23 @@ lookup(Key, Proplist) when is_list(Proplist) ->
 lookup(Key, Map) when is_map(Map) ->
     maps:get(Key, Map).
 
+safe_lookup(Key, Proplist) when is_list(Proplist) ->
+    case proplists:lookup(Key, Proplist) of
+        {Key, Value} ->
+            {ok, Value};
+
+        none ->
+            {error, none}
+    end;
+safe_lookup(Key, Map) when is_map(Map) ->
+    case maps:find(Key, Map) of
+        {ok, Value} ->
+            {ok, Value};
+
+        error ->
+            {error, none}
+    end.
+
 proplist(Proplist) when is_list(Proplist) ->
     proplists:unfold(Proplist);
 proplist(Map) when is_map(Map) ->
@@ -470,11 +528,32 @@ is_function(Name, Arity, Form) ->
 
 attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
     Clauses =
-        case get_value(attach, Opts, append) of
-            append ->
+        case safe_lookup(if_exists, Opts) of
+            {ok, append} ->
                 OldClauses ++ NewClauses;
 
-            prepend ->
-                NewClauses ++ OldClauses
+            {ok, prepend} ->
+                NewClauses ++ OldClauses;
+
+            {error, none} ->
+                log_or_raise( function_already_defined
+                            , #{ text => <<"Remove the function or set 'append' "
+                                           "or 'prepend' to 'if_exists' option">>
+                               , name => Name
+                               , arity => Arity }
+                            , Opts ),
+                OldClauses
         end,
     {function, Pos, Name, Arity, Clauses}.
+
+log_or_raise(Reason, Info, Opts) ->
+    case get_value(warnings_level, Opts, log) of
+        log ->
+            logger:warning(Info);
+
+        error ->
+            error({Reason, Info});
+
+        disabled ->
+            ok
+    end.
