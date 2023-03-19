@@ -91,7 +91,9 @@ parse_transform(Forms, _Options) ->
             Forms;
 
         Attrs ->
-            parserl_trans:form(Forms, [
+            GlobalOpts = #{ if_fun_exists => append },
+            parserl_trans:form(Forms, GlobalOpts, [
+                parserl_trans:remove_attribute(eel_fun),
                 parserl_trans:foreach(
                     fun(Attr) ->
                         Args = parserl:eval(erl_syntax:attribute_arguments(Attr)),
@@ -100,6 +102,7 @@ parse_transform(Forms, _Options) ->
                             case Kind of
                                 {bin, Bin, CompOpts} ->
                                     eel:compile(Bin, CompOpts);
+
                                 {file, Filename, CompOpts} ->
                                     eel:compile_file(Filename, CompOpts)
                             end,
@@ -109,13 +112,16 @@ parse_transform(Forms, _Options) ->
                         [
                             parserl_trans:insert_function(
                                 "static('@fun_name') -> _@static.",
-                                #{env => #{fun_name => FunName, static => Static}}),
+                                #{ env => #{ fun_name => FunName
+                                           , static => Static } }),
                             parserl_trans:insert_function(
                                 "ast('@fun_name') -> _@ast.",
-                                #{env => #{fun_name => FunName, ast => AST}}),
+                                #{ env => #{ fun_name => FunName
+                                           , ast => AST } }),
                             parserl_trans:insert_function(
                                 "vars('@fun_name') -> _@vars.",
-                                #{env => #{fun_name => FunName, vars => Vars}}),
+                                #{ env => #{ fun_name => FunName
+                                           , vars => Vars } }),
                             parserl_trans:if_else(
                                 Vars =:= [],
                                 [
@@ -132,7 +138,7 @@ parse_transform(Forms, _Options) ->
                                             ["'@fun_name'() ->",
                                              "    eel_renderer:render(",
                                              "        #{ static => static('@fun_name')",
-                                             "         , ast 1=> ast('@fun_name')",
+                                             "         , ast => ast('@fun_name')",
                                              "         , vars => vars('@fun_name') }",
                                              "    )."], Opts)
                                     )
