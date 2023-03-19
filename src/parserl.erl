@@ -528,7 +528,7 @@ is_function(Name, Arity, Form) ->
 
 attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
     Clauses =
-        case safe_lookup(if_exists, Opts) of
+        case safe_lookup(if_fun_exists, Opts) of
             {ok, append} ->
                 OldClauses ++ NewClauses;
 
@@ -538,7 +538,7 @@ attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
             {error, none} ->
                 log_or_raise( function_already_defined
                             , #{ text => <<"Remove the function or set 'append' "
-                                           "or 'prepend' to 'if_exists' option">>
+                                           "or 'prepend' to 'if_fun_exists' option">>
                                , name => Name
                                , arity => Arity }
                             , Opts ),
