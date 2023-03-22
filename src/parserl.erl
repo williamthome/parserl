@@ -80,7 +80,7 @@ remove_attribute(Name, Forms) ->
         fun(Form) ->
             case is_attribute(Name, Form) of
                 true ->
-                    erl_syntax:atom_value(erl_syntax:attribute_name(Form)) =/= Name;
+                    attribute_name(Form) =/= Name;
 
                 false ->
                     true
@@ -519,12 +519,18 @@ parse_trans_context(Forms, Options) ->
 
 is_attribute(Name, Form) ->
     erl_syntax:type(Form) =:= attribute
-    andalso erl_syntax:atom_value(erl_syntax:attribute_name(Form)) =:= Name.
+    andalso attribute_name(Form) =:= Name.
 
 is_function(Name, Arity, Form) ->
     erl_syntax:type(Form) =:= function
-    andalso erl_syntax:atom_value(erl_syntax:function_name(Form)) =:= Name
+    andalso function_name(Form) =:= Name
     andalso erl_syntax:function_arity(Form) =:= Arity.
+
+attribute_name(Form) ->
+    erl_syntax:atom_value(erl_syntax:attribute_name(Form)).
+
+function_name(Form) ->
+    erl_syntax:atom_value(erl_syntax:function_name(Form)).
 
 attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
     Clauses =
