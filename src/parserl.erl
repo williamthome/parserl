@@ -43,12 +43,14 @@ unquote(Abstract, Opts) ->
 
 insert_above(Form, Forms0) when is_list(Form) ->
     Context = parse_trans_context(Forms0),
-    {Forms, _} = parse_trans:do_transform(fun(function, F, _, false) ->
-                                                 {Form, F, [], false, true};
+    {Forms, _} = parse_trans:do_transform( fun(function, F, _, false) ->
+                                                  {Form, F, [], false, true};
 
-                                             (_, F, _, Acc) ->
-                                                 {F, false, Acc}
-                                          end, false, Forms0, Context),
+                                              (_, F, _, Acc) ->
+                                                  {F, false, Acc} end
+                                          , false
+                                          , Forms0
+                                          , Context ),
     Forms;
 insert_above(Form, Forms) when is_tuple(Form) ->
     insert_above([Form], Forms).
@@ -159,8 +161,11 @@ replace_function(Text, Forms0, Opts) ->
     case function_exists(Name, Arity, Forms0) of
         true ->
             Form = quote(Text, get_env(Opts)),
-            Forms = parse_trans:replace_function(Name, Arity, Form,
-                                                 Forms0, proplist(Opts)),
+            Forms = parse_trans:replace_function( Name
+                                                , Arity
+                                                , Form
+                                                , Forms0
+                                                , proplist(Opts) ),
             case get_value(export, Opts, false) of
                 true ->
                     export_function(Name, Arity, Forms, Opts);
@@ -209,7 +214,9 @@ unexport_function(Name, Forms, Opts) ->
                         true ->
                             %% TODO: Match using erl_syntax
                             {attribute, _, export, Funs0} = Form,
-                            case lists:filter(fun({N, _}) -> N =/= Name end, Funs0) of
+                            case lists:filter( fun({N, _}) -> N =/= Name end
+                                             , Funs0 )
+                            of
                                 [] ->
                                     false;
 
@@ -243,8 +250,9 @@ unexport_function(Name, Arity, Forms, Opts) ->
                         true ->
                             %% TODO: Match using erl_syntax
                             {attribute, _, export, Funs0} = Form,
-                            case lists:filter(fun({N, A}) -> N =/= Name orelse
-                                                            A =/= Arity end, Funs0)
+                            case lists:filter( fun({N, A}) -> N =/= Name orelse
+                                                              A =/= Arity end
+                                             , Funs0 )
                             of
                                 [] ->
                                     false;
@@ -298,8 +306,8 @@ is_function_exported(Name, Arity, [Form | Forms]) ->
         true ->
             %% TODO: Match using erl_syntax
             {attribute, _, export, Funs} = Form,
-            case lists:any(fun({N, A}) -> N =:= Name
-                                          andalso A =:= Arity end, Funs)
+            case lists:any( fun({N, A}) -> N =:= Name andalso A =:= Arity end
+                          , Funs )
             of
                 true ->
                     true;
@@ -367,8 +375,8 @@ eval(Forms) ->
     eval(Forms, []).
 
 eval(Forms, Bindings) ->
-    {value, Value, _NewBindings} = erl_eval:exprs(parserl:normalize(Forms),
-                                                  Bindings),
+    {value, Value, _NewBindings} = erl_eval:exprs( parserl:normalize(Forms)
+                                                 , Bindings ),
     Value.
 
 %%%=============================================================================
@@ -402,19 +410,19 @@ env_to_abstract(Env) ->
     env_to_abstract(Env, []).
 
 env_to_abstract(Env, Acc0) when is_list(Env) ->
-    lists:foldl(
-        fun({K, {abstract, V}}, Acc1) ->
-               [{K, V} | Acc1];
+    lists:foldl( fun({K, {abstract, V}}, Acc1) ->
+                        [{K, V} | Acc1];
 
-           ({K, V}, Acc1) ->
-               [{K, to_abstract(V)} | Acc1];
+                    ({K, V}, Acc1) ->
+                        [{K, to_abstract(V)} | Acc1];
 
-           (F, Acc1) when is_function(F, 0) ->
-               env_to_abstract(F(), Acc1);
+                    (F, Acc1) when is_function(F, 0) ->
+                        env_to_abstract(F(), Acc1);
 
-           (E, Acc1) when is_list(E) ->
-               env_to_abstract(E, Acc1)
-        end, Acc0, Env);
+                    (E, Acc1) when is_list(E) ->
+                        env_to_abstract(E, Acc1) end
+               , Acc0
+               , Env );
 env_to_abstract(Env, Acc) when is_map(Env) ->
     env_to_abstract(proplists:from_map(Env), Acc).
 

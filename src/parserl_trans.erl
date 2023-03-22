@@ -20,8 +20,8 @@ form(Forms, GlobalOpts, TransFuns) ->
     form(Forms, GlobalOpts, undefined, TransFuns).
 
 form(Forms, GlobalOpts, Context, TransFuns) ->
-    lists:foldl(fun(T, {F, C}) when is_function(T, 3) -> T(F, C, GlobalOpts) end,
-                {Forms, Context}, TransFuns ++ [normalize()]).
+    lists:foldl( fun(T, {F, C}) when is_function(T, 3) -> T(F, C, GlobalOpts) end
+               , {Forms, Context}, TransFuns ++ [normalize()]).
 
 insert_above(Fun) when is_function(Fun, 1) ->
     fun(Forms, Context0, _) ->
@@ -257,14 +257,11 @@ normalize() ->
 
 foreach(Predicate, List) ->
     fun(Forms, Context, GlobalOpts) ->
-        lists:foldl(
-            fun(Term, Acc) ->
-                Unresolved = Predicate(Term),
-                resolve(Acc, Context, GlobalOpts, Unresolved)
-            end,
-            Forms,
-            List
-        )
+        lists:foldl( fun(Term, Acc) ->
+                         Unresolved = Predicate(Term),
+                         resolve(Acc, Context, GlobalOpts, Unresolved) end
+                   , Forms
+                   , List )
     end.
 
 %%%=============================================================================
@@ -278,9 +275,9 @@ resolve({Forms, Context}, _, GlobalOpts, TransFun) ->
 resolve(Forms, Context, GlobalOpts, TransFun) when is_function(TransFun, 3) ->
     TransFun(Forms, Context, GlobalOpts);
 resolve(Forms, Context, GlobalOpts, TransFuns) when is_list(TransFuns) ->
-    lists:foldl(fun(TransFun, {F, C}) -> resolve(F, C, GlobalOpts, TransFun) end,
-                {Forms, Context},
-                TransFuns).
+    lists:foldl( fun(TransFun, {F, C}) -> resolve(F, C, GlobalOpts, TransFun) end
+               , {Forms, Context}
+               , TransFuns ).
 
 %% TODO: Improve merge
 
@@ -290,8 +287,6 @@ merge_opts(Opts, GlobalOpts) when is_list(GlobalOpts) ->
     merge_opts(Opts, proplists:to_map(GlobalOpts));
 merge_opts(Opts, GlobalOpts) ->
     maps:merge(maps:merge(Opts, GlobalOpts), #{
-        env => maps:merge(
-            maps:get(env, GlobalOpts, #{}),
-            maps:get(env, Opts, #{})
-        )
+        env => maps:merge( maps:get(env, GlobalOpts, #{})
+                         , maps:get(env, Opts, #{}) )
     }).
