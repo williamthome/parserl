@@ -227,7 +227,7 @@ unexport_function(Name, Forms, Opts) ->
             );
 
         false ->
-            log_or_raise( function_already_exported
+            log_or_raise( function_not_exported
                         , #{ text => <<"Function not exported">>
                            , name => Name }
                         , Opts ),
@@ -263,7 +263,7 @@ unexport_function(Name, Arity, Forms, Opts) ->
             );
 
         false ->
-            log_or_raise( function_already_exported
+            log_or_raise( function_not_exported
                         , #{ text => <<"Function not exported">>
                            , name => Name
                            , arity => Arity }
