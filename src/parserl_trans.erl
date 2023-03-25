@@ -19,6 +19,9 @@ form(Forms, TransFuns) ->
 form(Forms, GlobalOpts, TransFuns) ->
     form(Forms, GlobalOpts, undefined, TransFuns).
 
+form(Module, GlobalOpts, Context, TransFuns) when is_atom(Module) ->
+    Forms = parserl:quote("-module('@module').", #{module => Module}),
+    form(Forms, GlobalOpts, Context, TransFuns);
 form(Forms, GlobalOpts, Context, TransFuns) ->
     lists:foldl( fun(T, {F, C}) when is_function(T, 3) -> T(F, C, GlobalOpts) end
                , {Forms, Context}, TransFuns ++ [restore()]).
