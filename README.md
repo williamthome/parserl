@@ -91,7 +91,7 @@ parse_transform(Forms, _Options) ->
             Forms;
 
         Attrs ->
-            GlobalOpts = #{ if_fun_exists => append },
+            GlobalOpts = #{ if_function_exists => append },
             parserl_trans:form(Forms, GlobalOpts, [
                 parserl_trans:remove_attribute(eel_fun),
                 parserl_trans:foreach(
