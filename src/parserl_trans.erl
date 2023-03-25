@@ -573,9 +573,6 @@ maybe_arity_zero([$) | _]) ->
 maybe_arity_zero(_) ->
     false.
 
-get_value(Key, Proplist) ->
-    get_value(Key, Proplist, undefined).
-
 get_value(Key, Proplist, Default) when is_list(Proplist) ->
     proplists:get_value(Key, Proplist, Default);
 get_value(Key, Map, Default) when is_map(Map) ->
