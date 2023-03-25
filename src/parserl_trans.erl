@@ -18,6 +18,10 @@
         , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
         , log/4, log_or_raise/4, log_or_raise/5 ]).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 %%%=============================================================================
 %%% API
 %%%=============================================================================
@@ -659,3 +663,15 @@ normalize_filename(Filename) when is_list(Filename) ->
         false ->
             filename:join(Filename)
     end.
+
+%%%=============================================================================
+%%% Internal functions
+%%%=============================================================================
+
+-ifdef(TEST).
+
+quote_test() ->
+    ?assertEqual( {function,1,foo,1,[{clause,1,[{var,1,'Foo'}],[],[{var,1,'Foo'}]}]}
+                , quote("foo(Foo) -> Foo.") ).
+
+-endif.
