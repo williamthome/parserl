@@ -16,8 +16,8 @@
 form(Forms, TransFuns) ->
     form(Forms, #{}, TransFuns).
 
-form(Forms, GlobalOpts, TransFuns) ->
-    form(Forms, GlobalOpts, undefined, TransFuns).
+form(ModuleOrForms, GlobalOpts, TransFuns) ->
+    form(ModuleOrForms, GlobalOpts, undefined, TransFuns).
 
 form(Module, GlobalOpts, Context, TransFuns) when is_atom(Module) ->
     Forms = parserl:quote("-module('@module').", #{module => Module}),
