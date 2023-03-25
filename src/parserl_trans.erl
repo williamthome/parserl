@@ -674,4 +674,8 @@ quote_test() ->
     ?assertEqual( {function,1,foo,1,[{clause,1,[{var,1,'Foo'}],[],[{var,1,'Foo'}]}]}
                 , quote("foo(Foo) -> Foo.") ).
 
+unquote_test() ->
+    ?assertEqual( "foo(Foo) -> Foo."
+                , unquote({function,1,foo,1,[{clause,1,[{var,1,'Foo'}],[],[{var,1,'Foo'}]}]}) ).
+
 -endif.
