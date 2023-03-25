@@ -5,12 +5,12 @@
         , insert_attribute/2, insert_attribute/3, remove_attribute/2
         , find_attribute/2, find_all_attributes/2, attribute_exists/2
         , insert_function/2, insert_function/3, replace_function/2
-        , replace_function/3, export_function/3, export_function/4
-        , unexport_function/2, unexport_function/3, unexport_function/4
-        , is_function_exported/2, is_function_exported/3, find_function/3
-        , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
-        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
-        , log_or_raise/4, log_or_raise/5 ]).
+        , replace_function/3, replace_function/5, export_function/3
+        , export_function/4, unexport_function/2, unexport_function/3
+        , unexport_function/4, is_function_exported/2, is_function_exported/3
+        , find_function/3, function_exists/3, debug/1, restore/1, write_file/2
+        , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
+        , log/4, log_or_raise/4, log_or_raise/5 ]).
 
 %%%=============================================================================
 %%% API
@@ -165,11 +165,14 @@ insert_function(Text0, Forms0, Opts) ->
 replace_function(Text, Forms) ->
     replace_function(Text, Forms, []).
 
-replace_function(Text, Forms0, Opts) ->
-    Forms1 = normalize(Forms0),
+replace_function(Text, Forms, Opts) ->
     Body = flatten_text(Text),
     Name = guess_fun_name(Body, Opts),
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
+    replace_function(Name, Arity, Text, Forms, Opts).
+
+replace_function(Name, Arity, Text, Forms0, Opts) ->
+    Forms1 = normalize(Forms0),
     case function_exists(Name, Arity, Forms1) of
         true ->
             Form = quote(Text, get_env(Opts)),
