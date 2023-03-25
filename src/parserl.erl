@@ -208,10 +208,6 @@ function_exists(Fun) when is_function(Fun, 1) ->
 function_exists({Name, Arity}) ->
     fun(Forms, Context, _) ->
         {parserl_trans:function_exists(Name, Arity, Forms), Context}
-    end;
-function_exists(Name) ->
-    fun(Forms, Context, _) ->
-        {parserl_trans:function_exists(Name, Forms), Context}
     end.
 
 function_exists(Name, Arity) ->
