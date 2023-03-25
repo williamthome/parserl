@@ -176,14 +176,25 @@ replace_function(Name, Arity, Text, Forms0, Opts) ->
     case function_exists(Name, Arity, Forms1) of
         true ->
             Form = quote(Text, get_env(Opts)),
-            Forms = parse_trans:replace_function( Name
-                                                , Arity
-                                                , Form
-                                                , Forms1
-                                                , proplist(Opts) ),
+            Forms2 = parse_trans:replace_function( Name
+                                                 , Arity
+                                                 , Form
+                                                 , Forms1
+                                                 , proplist(Opts) ),
+            Forms =
+                case is_function_exported(Name, Arity, Forms2) of
+                    true ->
+                        unexport_function(Name, Arity, Forms2);
+
+                    false ->
+                        Forms2
+                end,
             case get_value(export, Opts, false) of
                 true ->
-                    export_function(Name, Arity, Forms, Opts);
+                    NewBody = flatten_text(Text),
+                    NewName = guess_fun_name(NewBody, Opts),
+                    NewArity = guess_fun_arity(NewBody),
+                    export_function(NewName, NewArity, Forms, Opts);
 
                 false ->
                     Forms
