@@ -14,7 +14,7 @@
         , replace_function/3, export_function/1, export_function/2
         , unexport_function/1, unexport_function/2, function_exists/1
         , function_exists/2, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, restore/0, foreach/2, log/2, log/3, log_or_raise/3
+        , if_else/3, restore/0, map/1, foreach/2, log/2, log/3, log_or_raise/3
         , log_or_raise/4 ]).
 
 %%%=============================================================================
@@ -288,6 +288,17 @@ if_else(BoolFun, IfTrue, IfFalse) ->
 restore() ->
     fun(Forms, _, _) ->
         parserl_trans:restore(Forms)
+    end.
+
+map(Fun) when is_function(Fun, 1) ->
+    fun(Forms, Context, _) ->
+        {lists:map(fun(Form) -> Fun(Form) end, Forms), Context}
+    end;
+map(Fun) when is_function(Fun, 2) ->
+    fun(Forms, Context, _) ->
+        lists:foldr( fun(Form, {F, C}) -> Fun(Form, F, C) end
+                   , {Forms, Context}
+                   , Forms )
     end.
 
 foreach(Predicate, List) ->
