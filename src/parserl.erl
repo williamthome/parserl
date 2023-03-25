@@ -8,7 +8,7 @@
         , replace_function/3, export_function/3, export_function/4
         , unexport_function/2, unexport_function/3, unexport_function/4
         , is_function_exported/2, is_function_exported/3, find_function/3
-        , function_exists/3, debug/1, normalize/1, write_file/2, get_module/1
+        , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
         , module_prefix/2, module_suffix/2, eval/1, eval/2 ]).
 
 %%%=============================================================================
@@ -34,14 +34,16 @@ quote(Text0, Env0) when is_list(Text0); is_binary(Text0) ->
             quote_error(Text, Env, Reason, Stack)
     end.
 
-unquote(Abstract) ->
-    unquote(Abstract, []).
+unquote(Form) ->
+    unquote(Form, []).
 
 %% @see https://www.erlang.org/doc/man/erl_prettypr.html#format-2
-unquote(Abstract, Opts) ->
-    erl_prettypr:format(Abstract, Opts).
+unquote(Form, Opts) when is_tuple(Form) ->
+    erl_prettypr:format(Form, Opts);
+unquote(Forms, Opts) when is_list(Forms) ->
+    flatten_text(lists:map(fun(Form) -> unquote(Form, Opts) end, Forms)).
 
-insert_above(Form, Forms0) when is_list(Form) ->
+insert_above(Form, Forms0) ->
     Context = parse_trans_context(Forms0),
     {Forms, _} = parse_trans:do_transform( fun(function, F, _, false) ->
                                                   {Form, F, [], false, true};
@@ -51,9 +53,7 @@ insert_above(Form, Forms0) when is_list(Form) ->
                                           , false
                                           , Forms0
                                           , Context ),
-    Forms;
-insert_above(Form, Forms) when is_tuple(Form) ->
-    insert_above([Form], Forms).
+    Forms.
 
 insert_below(Form, [H | T] = Forms) ->
     case erl_syntax:type(H) of
@@ -68,7 +68,11 @@ insert_below(Form, [H | T] = Forms) ->
 
         _ ->
             [H | insert_below(Form, T)]
-    end.
+    end;
+insert_below(Form, []) ->
+    [Form];
+insert_below(Form, Forms) when is_tuple(Forms) ->
+    insert_below(Form, [Forms]).
 
 insert_attribute(Text, Forms) ->
     insert_attribute(Text, Forms, []).
@@ -88,7 +92,7 @@ remove_attribute(Name, Forms) ->
                     true
             end
         end,
-        Forms
+        normalize(Forms)
     ).
 
 find_attribute(_, [{eof, _}]) ->
@@ -100,7 +104,11 @@ find_attribute(Name, [Form | T]) ->
 
         false ->
             find_attribute(Name, T)
-    end.
+    end;
+find_attribute(_, []) ->
+    false;
+find_attribute(Name, Forms) when is_tuple(Forms) ->
+    find_attribute(Name, [Forms]).
 
 find_all_attributes(Name, Forms) ->
     find_all_attributes(Name, Forms, []).
@@ -118,10 +126,11 @@ insert_function(Text, Forms) ->
     insert_function(Text, Forms, []).
 
 insert_function(Text0, Forms0, Opts) ->
+    Forms1 = normalize(Forms0),
     Text = flatten_text(Text0),
     Name = guess_fun_name(Text, Opts),
     Arity = guess_fun_arity(Text),
-    case function_exists(Name, Arity, Forms0) of
+    case function_exists(Name, Arity, Forms1) of
         true ->
             lists:map(
                 fun(Form) ->
@@ -136,12 +145,12 @@ insert_function(Text0, Forms0, Opts) ->
                             Form
                     end
                 end,
-                Forms0
+                Forms1
             );
 
         false ->
             Abstract = quote(Text, get_env(Opts)),
-            Forms = insert_below(Abstract, Forms0),
+            Forms = insert_below(Abstract, Forms1),
             case get_value(export, Opts, false) of
                 true ->
                     export_function(Name, Arity, Forms, Opts);
@@ -155,16 +164,17 @@ replace_function(Text, Forms) ->
     replace_function(Text, Forms, []).
 
 replace_function(Text, Forms0, Opts) ->
+    Forms1 = normalize(Forms0),
     Body = flatten_text(Text),
     Name = guess_fun_name(Body, Opts),
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
-    case function_exists(Name, Arity, Forms0) of
+    case function_exists(Name, Arity, Forms1) of
         true ->
             Form = quote(Text, get_env(Opts)),
             Forms = parse_trans:replace_function( Name
                                                 , Arity
                                                 , Form
-                                                , Forms0
+                                                , Forms1
                                                 , proplist(Opts) ),
             case get_value(export, Opts, false) of
                 true ->
@@ -180,13 +190,14 @@ replace_function(Text, Forms0, Opts) ->
                         , name => Name
                         , arity => Arity }
                         , Opts ),
-            Forms0
+            Forms1
     end.
 
 export_function(Name, Arity, Forms) ->
     export_function(Name, Arity, Forms, #{}).
 
-export_function(Name, Arity, Forms, Opts) ->
+export_function(Name, Arity, Forms0, Opts) ->
+    Forms = normalize(Forms0),
     case not is_function_exported(Name, Arity, Forms) of
         true ->
             parse_trans:export_function(Name, Arity, Forms);
@@ -205,7 +216,8 @@ unexport_function(Name, Forms) ->
 
 unexport_function(Name, Arity, Forms) when is_integer(Arity) ->
     unexport_function(Name, Arity, Forms, #{});
-unexport_function(Name, Forms, Opts) ->
+unexport_function(Name, Forms0, Opts) ->
+    Forms = normalize(Forms0),
     case is_function_exported(Name, Forms) of
         true ->
             lists:filtermap(
@@ -241,7 +253,8 @@ unexport_function(Name, Forms, Opts) ->
             Forms
     end.
 
-unexport_function(Name, Arity, Forms, Opts) ->
+unexport_function(Name, Arity, Forms0, Opts) ->
+    Forms = normalize(Forms0),
     case is_function_exported(Name, Arity, Forms) of
         true ->
             lists:filtermap(
@@ -297,7 +310,11 @@ is_function_exported(Name, [Form | Forms]) ->
 
         false ->
             is_function_exported(Name, Forms)
-    end.
+    end;
+is_function_exported(_, []) ->
+    false;
+is_function_exported(Name, Forms) when is_tuple(Forms) ->
+    is_function_exported(Name, [Forms]).
 
 is_function_exported(_, _, [{eof, _}]) ->
     false;
@@ -318,7 +335,11 @@ is_function_exported(Name, Arity, [Form | Forms]) ->
 
         false ->
             is_function_exported(Name, Arity, Forms)
-    end.
+    end;
+is_function_exported(_, _, []) ->
+    false;
+is_function_exported(Name, Arity, Forms) when is_tuple(Forms) ->
+    is_function_exported(Name, Arity, [Forms]).
 
 find_function(_, _, [{eof, _}]) ->
     false;
@@ -329,7 +350,11 @@ find_function(Name, Arity, [Form | T]) ->
 
         false ->
             find_function(Name, Arity, T)
-    end.
+        end;
+find_function(_, _, []) ->
+    false;
+find_function(Name, Arity, Forms) when is_tuple(Forms) ->
+    find_function(Name, Arity, [Forms]).
 
 function_exists(Name, Arity, Forms) ->
     case find_function(Name, Arity, Forms) of
@@ -342,7 +367,7 @@ function_exists(Name, Arity, Forms) ->
 
 pprint(Forms) ->
     unicode:characters_to_nfc_binary(io_lib:format("~s~n", [
-        lists:flatten([erl_pp:form(F) || F <- normalize(Forms)])
+        lists:flatten([erl_pp:form(F) || F <- restore(Forms)])
     ])).
 
 debug(Forms) ->
@@ -350,16 +375,19 @@ debug(Forms) ->
     Forms.
 
 normalize(Forms) when is_list(Forms) ->
-    epp:restore_typed_record_fields(
-        [erl_syntax:revert(T) || T <- lists:flatten(Forms)]);
+    Forms;
 normalize(Forms) when is_tuple(Forms) ->
-    normalize([Forms]).
+    [Forms].
+
+restore(Forms) ->
+    epp:restore_typed_record_fields(
+        [erl_syntax:revert(T) || T <- lists:flatten(normalize(Forms))]).
 
 write_file(Filename, Forms) ->
     file:write_file(Filename, pprint(Forms)).
 
 get_module(Forms) ->
-    parse_trans:get_module(Forms).
+    parse_trans:get_module(normalize(Forms)).
 
 module_prefix(Prefix, Forms) when is_list(Prefix); is_binary(Prefix) ->
     iolist_to_binary([Prefix, atom_to_binary(parse_trans:get_module(Forms))]);
@@ -375,8 +403,7 @@ eval(Forms) ->
     eval(Forms, []).
 
 eval(Forms, Bindings) ->
-    {value, Value, _NewBindings} = erl_eval:exprs( parserl:normalize(Forms)
-                                                 , Bindings ),
+    {value, Value, _NewBindings} = erl_eval:exprs(restore(Forms), Bindings),
     Value.
 
 %%%=============================================================================
@@ -523,7 +550,7 @@ parse_trans_context(Forms) ->
     parse_trans_context(Forms, []).
 
 parse_trans_context(Forms, Options) ->
-    parse_trans:initial_context(Forms, Options).
+    parse_trans:initial_context(normalize(Forms), Options).
 
 is_attribute(Name, Form) ->
     erl_syntax:type(Form) =:= attribute

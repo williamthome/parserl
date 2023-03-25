@@ -7,7 +7,7 @@
         , replace_function/1, replace_function/2, export_function/1
         , export_function/2, unexport_function/1, unexport_function/2
         , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, normalize/0, foreach/2 ]).
+        , if_else/3, restore/0, foreach/2 ]).
 
 %%%=============================================================================
 %%% API
@@ -21,7 +21,7 @@ form(Forms, GlobalOpts, TransFuns) ->
 
 form(Forms, GlobalOpts, Context, TransFuns) ->
     lists:foldl( fun(T, {F, C}) when is_function(T, 3) -> T(F, C, GlobalOpts) end
-               , {Forms, Context}, TransFuns ++ [normalize()]).
+               , {Forms, Context}, TransFuns ++ [restore()]).
 
 insert_above(Fun) when is_function(Fun, 1) ->
     fun(Forms, Context0, _) ->
@@ -250,9 +250,9 @@ if_else(BoolFun, IfTrue, IfFalse) ->
         end
     end.
 
-normalize() ->
+restore() ->
     fun(Forms, _, _) ->
-        parserl:normalize(Forms)
+        parserl:restore(Forms)
     end.
 
 foreach(Predicate, List) ->
