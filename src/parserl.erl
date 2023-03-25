@@ -301,10 +301,10 @@ map(Fun) when is_function(Fun, 2) ->
                    , Forms )
     end.
 
-foreach(Predicate, List) ->
+foreach(Fun, List) ->
     fun(Forms, Context, GlobalOpts) ->
         lists:foldl( fun(Term, Acc) ->
-                         Unresolved = Predicate(Term),
+                         Unresolved = Fun(Term),
                          resolve(Acc, Context, GlobalOpts, Unresolved) end
                    , Forms
                    , List )
