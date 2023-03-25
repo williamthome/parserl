@@ -15,8 +15,8 @@
 %%% API
 %%%=============================================================================
 
-transform(Forms, TransFuns) ->
-    transform(Forms, #{}, TransFuns).
+transform(ModuleOrForms, TransFuns) ->
+    transform(ModuleOrForms, #{}, TransFuns).
 
 transform(ModuleOrForms, GlobalOpts, TransFuns) ->
     transform(ModuleOrForms, GlobalOpts, undefined, TransFuns).
@@ -327,19 +327,20 @@ log_or_raise(Level, Reason, StringOrReport, Metadata) ->
 %%% Internal functions
 %%%=============================================================================
 
-do_write_file(Filename, Forms, Context, GlobalOpts) ->
-    case parserl_trans:write_file(Filename, Forms) of
-        {ok, Bin} ->
+do_write_file(Filename0, Forms, Context, GlobalOpts) ->
+    case parserl_trans:write_file(Filename0, Forms) of
+        {ok, {Filename, Bin}} ->
             parserl_trans:log( notice
                              , "File saved to ~s~n---~n~s~n---"
                              , [Filename, Bin]
                              , GlobalOpts );
 
-        {error, Reason} ->
+        {error, {Filename, Reason}} ->
             parserl_trans:log_or_raise( error
                                       , Reason
                                       , #{ text => <<"Error writing file">>
-                                         , filename => Filename }
+                                         , filename => Filename
+                                         , reason => Reason }
                                       , GlobalOpts)
     end,
     {Forms, Context}.

@@ -403,28 +403,33 @@ restore(Forms) ->
     epp:restore_typed_record_fields(
         [erl_syntax:revert(T) || T <- lists:flatten(normalize(Forms))]).
 
-write_file(Filename, Forms) ->
+write_file(Filename0, Forms) ->
+    Filename = normalize_filename(Filename0),
     Bin = pprint(Forms),
     case file:write_file(Filename, Bin) of
         ok ->
-            {ok, Bin};
+            {ok, {Filename, Bin}};
 
         {error, Reason} ->
-            {error, Reason}
+            {error, {Filename, Reason}}
     end.
 
 get_module(Forms) ->
     parse_trans:get_module(normalize(Forms)).
 
-module_prefix(Prefix, Forms) when is_list(Prefix); is_binary(Prefix) ->
-    iolist_to_binary([Prefix, atom_to_binary(parse_trans:get_module(Forms))]);
-module_prefix(Prefix, Forms) when is_atom(Prefix) ->
-    module_prefix(atom_to_binary(Prefix), Forms).
+module_prefix(Prefix, Forms) when is_list(Forms) ->
+    module_prefix(Prefix, parse_trans:get_module(Forms));
+module_prefix(Prefix, Module) when is_list(Prefix); is_binary(Prefix) ->
+    unicode:characters_to_binary([Prefix, atom_to_binary(Module)]);
+module_prefix(Prefix, Module) when is_atom(Prefix) ->
+    module_prefix(atom_to_binary(Prefix), Module).
 
-module_suffix(Suffix, Forms) when is_list(Suffix); is_binary(Suffix) ->
-    iolist_to_binary([atom_to_binary(parse_trans:get_module(Forms)), Suffix]);
-module_suffix(Suffix, Forms) when is_atom(Suffix) ->
-    module_suffix(atom_to_binary(Suffix), Forms).
+module_suffix(Forms, Suffix) when is_list(Forms) ->
+    module_suffix(parse_trans:get_module(Forms), Suffix);
+module_suffix(Module, Suffix) when is_list(Suffix); is_binary(Suffix) ->
+    unicode:characters_to_binary([atom_to_binary(Module), Suffix]);
+module_suffix(Module, Suffix) when is_atom(Suffix) ->
+    module_suffix(Module, atom_to_binary(Suffix)).
 
 eval(Forms) ->
     eval(Forms, []).
@@ -640,3 +645,14 @@ attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
                 OldClauses
         end,
     {function, Pos, Name, Arity, Clauses}.
+
+normalize_filename(Filename) when is_binary(Filename) ->
+    Filename;
+normalize_filename(Filename) when is_list(Filename) ->
+    case io_lib:char_list(Filename) of
+        true ->
+            Filename;
+
+        false ->
+            filename:join(Filename)
+    end.
