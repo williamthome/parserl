@@ -665,7 +665,7 @@ normalize_filename(Filename) when is_list(Filename) ->
     end.
 
 %%%=============================================================================
-%%% Internal functions
+%%% Test functions
 %%%=============================================================================
 
 -ifdef(TEST).
