@@ -366,7 +366,7 @@ function_exists(Name, Arity, Forms) ->
     end.
 
 pprint(Forms) ->
-    unicode:characters_to_nfc_binary(io_lib:format("~s~n", [
+    unicode:characters_to_binary(io_lib:format("~s~n", [
         lists:flatten([erl_pp:form(F) || F <- restore(Forms)])
     ])).
 
