@@ -45,14 +45,15 @@ unquote(Forms, Opts) when is_list(Forms) ->
     flatten_text(lists:map(fun(Form) -> unquote(Form, Opts) end, Forms)).
 
 insert_above(Form, Forms0) ->
-    Context = parse_trans_context(Forms0),
+    Forms1 = normalize(Forms0),
+    Context = parse_trans_context(Forms1),
     {Forms, _} = parse_trans:do_transform( fun(function, F, _, false) ->
                                                   {Form, F, [], false, true};
 
                                               (_, F, _, Acc) ->
                                                   {F, false, Acc} end
                                           , false
-                                          , Forms0
+                                          , Forms1
                                           , Context ),
     Forms.
 
