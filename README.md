@@ -116,12 +116,25 @@ get_module(Forms) when is_list(Forms) ->
     parserl_trans:get_module(Forms).
 ```
 
-## TODO
+## Next steps
 
 - Improve this README file
 - Functions documentations
 - Functions specs
 - Test everything
+
+## Sponsors
+
+If you liked this or any of my libs, please consider [sponsoring me](https://github.com/sponsors/williamthome).\
+I'm thankful for your never-ending support :heart:
+
+I also accept coffees :coffee:
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/williamthome)
+
+## Contributing
+
+Feels free to [submit an issue on GitHub](https://github.com/williamthome/parserl/issues/new).
 
 ## License
 
