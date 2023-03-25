@@ -188,13 +188,13 @@ debug() ->
     end.
 
 write_file(Fun) when is_function(Fun, 1) ->
-    fun(Forms, Context0, _) ->
+    fun(Forms, Context0, GlobalOpts) ->
         {Filename, Context} = Fun(Context0),
-        {parserl:write_file(Filename, Forms), Context}
+        do_write_file(Filename, Forms, Context, GlobalOpts)
     end;
 write_file(Filename) ->
-    fun(Forms, Context, _) ->
-        {parserl:write_file(Filename, Forms), Context}
+    fun(Forms, Context, GlobalOpts) ->
+        do_write_file(Filename, Forms, Context, GlobalOpts)
     end.
 
 if_true(true, Unresolved) ->
@@ -294,6 +294,20 @@ log_or_raise(Reason, StringOrReport, Metadata) ->
 %%% Internal functions
 %%%=============================================================================
 
+do_write_file(Filename, Forms, Context, GlobalOpts) ->
+    case parserl:write_file(Filename, Forms) of
+        {ok, Bin} ->
+            parserl:log( "File saved to ~s~n---~n~s~n---"
+                       , [Filename, Bin]
+                       , GlobalOpts );
+
+        {error, Reason} ->
+            parserl:log_or_raise( Reason
+                                , #{ text => <<"Error writing file">>
+                                   , filename => Filename }
+                                , GlobalOpts)
+    end,
+    {Forms, Context}.
 
 resolve({Forms, Context}, _, GlobalOpts, TransFun) ->
     % Resolves foreach result

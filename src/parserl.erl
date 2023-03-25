@@ -385,7 +385,14 @@ restore(Forms) ->
         [erl_syntax:revert(T) || T <- lists:flatten(normalize(Forms))]).
 
 write_file(Filename, Forms) ->
-    file:write_file(Filename, pprint(Forms)).
+    Bin = pprint(Forms),
+    case file:write_file(Filename, Bin) of
+        ok ->
+            {ok, Bin};
+
+        {error, Reason} ->
+            {error, Reason}
+    end.
 
 get_module(Forms) ->
     parse_trans:get_module(normalize(Forms)).
@@ -543,6 +550,9 @@ maybe_arity_zero([$) | _]) ->
     true;
 maybe_arity_zero(_) ->
     false.
+
+get_value(Key, Proplist) ->
+    get_value(Key, Proplist, undefined).
 
 get_value(Key, Proplist, Default) when is_list(Proplist) ->
     proplists:get_value(Key, Proplist, Default);
