@@ -9,8 +9,8 @@
         , unexport_function/2, unexport_function/3, unexport_function/4
         , is_function_exported/2, is_function_exported/3, find_function/3
         , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
-        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/2, log/3
-        , log_or_raise/3, log_or_raise/4 ]).
+        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
+        , log_or_raise/4, log_or_raise/5 ]).
 
 %%%=============================================================================
 %%% API
@@ -186,7 +186,8 @@ replace_function(Text, Forms0, Opts) ->
             end;
 
         false ->
-            log_or_raise( function_not_defined
+            log_or_raise( warning
+                        , function_not_defined
                         , #{ text => <<"Function not defined">>
                         , name => Name
                         , arity => Arity }
@@ -204,7 +205,8 @@ export_function(Name, Arity, Forms0, Opts) ->
             parse_trans:export_function(Name, Arity, Forms);
 
         false ->
-            log_or_raise( function_already_exported
+            log_or_raise( warning
+                        , function_already_exported
                         , #{ text => <<"Function already exported">>
                            , name => Name
                            , arity => Arity }
@@ -247,7 +249,8 @@ unexport_function(Name, Forms0, Opts) ->
             );
 
         false ->
-            log_or_raise( function_not_exported
+            log_or_raise( warning
+                        , function_not_exported
                         , #{ text => <<"Function not exported">>
                            , name => Name }
                         , Opts ),
@@ -285,7 +288,8 @@ unexport_function(Name, Arity, Forms0, Opts) ->
             );
 
         false ->
-            log_or_raise( function_not_exported
+            log_or_raise( warning
+                        , function_not_exported
                         , #{ text => <<"Function not exported">>
                            , name => Name
                            , arity => Arity }
@@ -414,35 +418,27 @@ eval(Forms, Bindings) ->
     {value, Value, _NewBindings} = erl_eval:exprs(restore(Forms), Bindings),
     Value.
 
-log(String, Opts) when is_list(String) ->
-    log(String, [], Opts);
-log(Report, Opts) ->
-    log(Report, #{}, Opts).
+log(Level, String, Opts) when is_list(String) ->
+    log(Level, String, [], Opts);
+log(Level, Report, Opts) ->
+    log(Level, Report, #{}, Opts).
 
-log(StringOrReport, Metadata, Opts) ->
-    case get_value(log_level, Opts, disabled) of
-        disabled ->
-            ok;
+log(_, _, _, #{log := false}) ->
+    ok;
+log(Level, StringOrReport, Metadata, _) ->
+    logger:log(Level, StringOrReport, Metadata).
 
-        Level ->
-            logger:log(Level, StringOrReport, Metadata)
-    end.
+log_or_raise(Level, Reason, String, Opts) when is_list(String) ->
+    log_or_raise(Level, Reason, String, [], Opts);
+log_or_raise(Level, Reason, Report, Opts) ->
+    log_or_raise(Level, Reason, Report, #{}, Opts).
 
-log_or_raise(Reason, String, Opts) when is_list(String) ->
-    log_or_raise(Reason, String, [], Opts);
-log_or_raise(Reason, Report, Opts) ->
-    log_or_raise(Reason, Report, #{}, Opts).
-
-log_or_raise(Reason, StringOrReport, Metadata, Opts) ->
-    case get_value(log_level, Opts) == warning andalso
-         get_value(warnings_as_errors, Opts, false)
-    of
-        true ->
-            error({Reason, StringOrReport});
-
-        false ->
-            log(StringOrReport, Metadata, Opts)
-    end.
+log_or_raise(_, _, _, _, #{log := false}) ->
+    ok;
+log_or_raise(warning, Reason, StringOrReport, _, #{warnings_as_errors := true}) ->
+    error({Reason, StringOrReport});
+log_or_raise(Level, _, StringOrReport, Metadata, Opts) ->
+    log(Level, StringOrReport, Metadata, Opts).
 
 %%%=============================================================================
 %%% Internal functions
@@ -618,7 +614,8 @@ attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
                 NewClauses ++ OldClauses;
 
             {error, none} ->
-                log_or_raise( function_already_defined
+                log_or_raise( warning
+                            , function_already_defined
                             , #{ text => <<"Remove the function or set 'append' "
                                            "or 'prepend' to 'if_fun_exists' option">>
                                , name => Name

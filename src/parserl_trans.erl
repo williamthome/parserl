@@ -7,8 +7,8 @@
         , replace_function/1, replace_function/2, export_function/1
         , export_function/2, unexport_function/1, unexport_function/2
         , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, restore/0, foreach/2, log/1, log/2, log_or_raise/2
-        , log_or_raise/3 ]).
+        , if_else/3, restore/0, foreach/2, log/2, log/3, log_or_raise/3
+        , log_or_raise/4 ]).
 
 %%%=============================================================================
 %%% API
@@ -268,25 +268,29 @@ foreach(Predicate, List) ->
                    , List )
     end.
 
-log(String) when is_list(String) ->
-    log(String, []);
-log(Report) ->
-    log(Report, #{}).
+log(Level, String) when is_list(String) ->
+    log(Level, String, []);
+log(Level, Report) ->
+    log(Level, Report, #{}).
 
-log(StringOrReport, Metadata) ->
+log(Level, StringOrReport, Metadata) ->
     fun(Forms, Context, GlobalOpts) ->
-        parserl:log(StringOrReport, Metadata, GlobalOpts),
+        parserl:log(Level, StringOrReport, Metadata, GlobalOpts),
         {Forms, Context}
     end.
 
-log_or_raise(Reason, String) when is_list(String) ->
-    log_or_raise(Reason, String, []);
-log_or_raise(Reason, Report) ->
-    log_or_raise(Reason, Report, #{}).
+log_or_raise(Level, Reason, String) when is_list(String) ->
+    log_or_raise(Level, Reason, String, []);
+log_or_raise(Level, Reason, Report) ->
+    log_or_raise(Level, Reason, Report, #{}).
 
-log_or_raise(Reason, StringOrReport, Metadata) ->
+log_or_raise(Level, Reason, StringOrReport, Metadata) ->
     fun(Forms, Context, GlobalOpts) ->
-        parserl:log_or_raise(Reason, StringOrReport, Metadata, GlobalOpts),
+        parserl:log_or_raise( Level
+                            , Reason
+                            , StringOrReport
+                            , Metadata
+                            , GlobalOpts ),
         {Forms, Context}
     end.
 
@@ -297,12 +301,14 @@ log_or_raise(Reason, StringOrReport, Metadata) ->
 do_write_file(Filename, Forms, Context, GlobalOpts) ->
     case parserl:write_file(Filename, Forms) of
         {ok, Bin} ->
-            parserl:log( "File saved to ~s~n---~n~s~n---"
+            parserl:log( notice
+                       , "File saved to ~s~n---~n~s~n---"
                        , [Filename, Bin]
                        , GlobalOpts );
 
         {error, Reason} ->
-            parserl:log_or_raise( Reason
+            parserl:log_or_raise( error
+                                , Reason
                                 , #{ text => <<"Error writing file">>
                                    , filename => Filename }
                                 , GlobalOpts)
