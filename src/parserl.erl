@@ -9,7 +9,8 @@
         , unexport_function/2, unexport_function/3, unexport_function/4
         , is_function_exported/2, is_function_exported/3, find_function/3
         , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
-        , module_prefix/2, module_suffix/2, eval/1, eval/2 ]).
+        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/2, log/3
+        , log_or_raise/3, log_or_raise/4 ]).
 
 %%%=============================================================================
 %%% API
@@ -406,6 +407,36 @@ eval(Forms, Bindings) ->
     {value, Value, _NewBindings} = erl_eval:exprs(restore(Forms), Bindings),
     Value.
 
+log(String, Opts) when is_list(String) ->
+    log(String, [], Opts);
+log(Report, Opts) ->
+    log(Report, #{}, Opts).
+
+log(StringOrReport, Metadata, Opts) ->
+    case get_value(log_level, Opts, disabled) of
+        disabled ->
+            ok;
+
+        Level ->
+            logger:log(Level, StringOrReport, Metadata)
+    end.
+
+log_or_raise(Reason, String, Opts) when is_list(String) ->
+    log_or_raise(Reason, String, [], Opts);
+log_or_raise(Reason, Report, Opts) ->
+    log_or_raise(Reason, Report, #{}, Opts).
+
+log_or_raise(Reason, StringOrReport, Metadata, Opts) ->
+    case get_value(log_level, Opts) == warning andalso
+         get_value(warnings_as_errors, Opts, false)
+    of
+        true ->
+            error({Reason, StringOrReport});
+
+        false ->
+            log(StringOrReport, Metadata, Opts)
+    end.
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
@@ -586,15 +617,3 @@ attach_clauses({function, Pos, Name, Arity, OldClauses}, NewClauses, Opts) ->
                 OldClauses
         end,
     {function, Pos, Name, Arity, Clauses}.
-
-log_or_raise(Reason, Info, Opts) ->
-    case get_value(warnings_level, Opts, log) of
-        log ->
-            logger:warning(Info);
-
-        error ->
-            error({Reason, Info});
-
-        disabled ->
-            ok
-    end.

@@ -7,7 +7,8 @@
         , replace_function/1, replace_function/2, export_function/1
         , export_function/2, unexport_function/1, unexport_function/2
         , function_exists/1, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, restore/0, foreach/2 ]).
+        , if_else/3, restore/0, foreach/2, log/1, log/2, log_or_raise/2
+        , log_or_raise/3 ]).
 
 %%%=============================================================================
 %%% API
@@ -265,6 +266,28 @@ foreach(Predicate, List) ->
                          resolve(Acc, Context, GlobalOpts, Unresolved) end
                    , Forms
                    , List )
+    end.
+
+log(String) when is_list(String) ->
+    log(String, []);
+log(Report) ->
+    log(Report, #{}).
+
+log(StringOrReport, Metadata) ->
+    fun(Forms, Context, GlobalOpts) ->
+        parserl:log(StringOrReport, Metadata, GlobalOpts),
+        {Forms, Context}
+    end.
+
+log_or_raise(Reason, String) when is_list(String) ->
+    log_or_raise(Reason, String, []);
+log_or_raise(Reason, Report) ->
+    log_or_raise(Reason, Report, #{}).
+
+log_or_raise(Reason, StringOrReport, Metadata) ->
+    fun(Forms, Context, GlobalOpts) ->
+        parserl:log_or_raise(Reason, StringOrReport, Metadata, GlobalOpts),
+        {Forms, Context}
     end.
 
 %%%=============================================================================
