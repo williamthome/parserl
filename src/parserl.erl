@@ -6,9 +6,10 @@
         , attribute_exists/1, insert_function/1, insert_function/2
         , replace_function/1, replace_function/2, replace_function/4
         , replace_function/3, export_function/1, export_function/2
-        , unexport_function/1, unexport_function/2, function_exists/1, debug/0
-        , write_file/1, if_true/2, if_false/2, if_else/3, restore/0, foreach/2
-        , log/2, log/3, log_or_raise/3, log_or_raise/4 ]).
+        , unexport_function/1, unexport_function/2, function_exists/1
+        , function_exists/2, debug/0, write_file/1, if_true/2, if_false/2
+        , if_else/3, restore/0, foreach/2, log/2, log/3, log_or_raise/3
+        , log_or_raise/4 ]).
 
 %%%=============================================================================
 %%% API
@@ -206,6 +207,9 @@ function_exists(Name) ->
     fun(Forms, Context, _) ->
         {parserl_trans:function_exists(Name, Forms), Context}
     end.
+
+function_exists(Name, Arity) ->
+    function_exists({Name, Arity}).
 
 debug() ->
     fun(Forms, Context, _) ->
