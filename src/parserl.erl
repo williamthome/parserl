@@ -1,3 +1,9 @@
+%%%-----------------------------------------------------------------------------
+%%% @author William Fank Thomé [https://github.com/williamthome]
+%%% @copyright 2023 William Fank Thomé
+%%% @doc Main module to parse transform.
+%%% @end
+%%%-----------------------------------------------------------------------------
 -module(parserl).
 
 %% API
@@ -331,7 +337,7 @@ do_write_file(Filename0, Forms, Context, GlobalOpts) ->
     case parserl_trans:write_file(Filename0, Forms) of
         {ok, {Filename, Bin}} ->
             parserl_trans:log( notice
-                             , "File saved to ~s~n---~n~s~n---"
+                             , "File saved in ~s~n---~n~s~n---"
                              , [Filename, Bin]
                              , GlobalOpts );
 

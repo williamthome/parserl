@@ -2,176 +2,130 @@
 
 A helper library to simplify modules transformation.
 
-## Examples
+## Introduction
 
-### #1
+In a nutshell, `parserl` is a recursive function.
+The transform function receives `ASTs` (Abstract Syntax Trees), and the output is also ASTs but transformed along the way. It can also receive a module name and build the module from scratch, which is used in the [example](#example) below, but it isn't usual.
+
+## Disclaimer
+
+This is a work in progress lib.
+
+## Installation
+
+Add `parserl` to rebar.config deps:
 
 ```erlang
--module(mymodule).
+{deps, [{ parserl, { git, "https://github.com/williamthome/parserl.git"
+                   , {branch, "main"} }}]}.
+```
+
+Run `rebar3 compile`.
+
+## Example
+
+```erlang
+-module(example).
 
 -export([parse_transform/2]).
+-export([write_module_from_scratch/0]).
 
+% Use as parse transform ...
 parse_transform(Forms, _Options) ->
-    EElModule = binary_to_atom(parserl:module_suffix("_eel", Forms)),
-    parserl_trans:form(Forms, [
-        parserl_trans:insert_attribute("-on_load(compile/0)."),
+    do_transform(Forms).
 
-        parserl_trans:insert_function(
-            ["compile() ->",
-             "    {ok, _@eel_module} =",
-             "        case render_defs(#{}) of",
-             "            {{html, Html0, Opts}, _} ->",
-             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),",
-             "                eel:compile_to_module(Html, _@eel_module, Opts);",
-             "            {{html, Html0}, _} ->",
-             "                Html = unicode:characters_to_nfc_binary(string:trim(Html0)),",
-             "                eel:compile_to_module(Html, _@eel_module);",
-             "            {{file, Filename, Opts}, _} ->",
-             "                eel:compile_file_to_module(Filename, _@eel_module, Opts);",
-             "            {{file, Filename}, _} ->",
-             "                eel:compile_file_to_module(Filename, _@eel_module)",
-             "        end,",
-             "    ok."],
-            #{env => #{eel_module => EElModule}}),
+% ... or start a module from scratch
+write_module_from_scratch() ->
+    Module = parserl_example,
+    do_transform(Module),
+    ok.
 
-        parserl_trans:replace_function(
-            "render(Bindings) -> render(Bindings, #{}).",
-            #{rename_original => render_defs}),
-
-        parserl_trans:unexport_function(render_defs),
-
-        parserl_trans:insert_function(
-            ["render(Bindings0, Opts) when is_map(Opts) ->",
-             "    {_, Bindings} = render_defs(Bindings0),",
-             "    _@eel_module:render(Bindings, Opts);",
-             "render(Bindings, Snapshot) ->",
-             "    render(Bindings, Snapshot, #{})."],
-            #{env => #{eel_module => EElModule}, export => true}),
-
-        parserl_trans:insert_function(
-            ["render(Bindings0, Snapshot, Opts) ->",
-             "    {_, Bindings} = render_defs(Bindings0),",
-             "    _@eel_module:render(Bindings, Snapshot, Opts)."],
-            #{env => #{eel_module => EElModule}, export => true}),
-
-        parserl_trans:insert_function(
-            ["static() ->",
-             "    _@eel_module:static()."],
-            #{env => #{eel_module => EElModule}, export => true}),
-
-        parserl_trans:if_false(
-            parserl_trans:function_exists({mount, 2}),
-            parserl_trans:insert_function(
-                "mount(_Params, Socket) -> {ok, Socket}.",
-                [export])
+do_transform(ModuleOrForms) ->
+    Module = get_module(ModuleOrForms),
+    % Global options are optional.
+    GlobalOpts = #{ env => #{module => Module}
+                  , log => true
+                  , if_function_exists => append },
+    % Context is optional and can be anything.
+    Context = #{replace_temp_fun_by => "bar() -> bar."},
+    parserl:transform(ModuleOrForms, GlobalOpts, Context, [
+        parserl:insert_attribute("-on_load(init/0)."),
+        parserl:insert_function(
+            [ "init() ->"
+            , "    io:format(\"Module ~p loaded.\", [_@module])." ]),
+            % The _@module can looks weird, but it's a metavariable.
+            % parserl uses merl under the hood, this gives the
+            % power to do metavariable substitution.
+            % See the merl documentation for more information:
+            %     https://www.erlang.org/doc/man/merl.html
+        parserl:insert_function(
+            [ "foo(Foo, _) when is_atom(Foo) ->"
+            , "    foo." ]
+            , [export]),
+        parserl:insert_function(
+            [ "foo(Foo, Bar) ->"
+            , "    case Foo == Bar of"
+            , "        true -> equal;"
+            , "        false -> not_equal"
+            , "    end." ]),
+        parserl:insert_function("temp() -> deleteme."),
+        parserl:if_true(
+            parserl:function_exists(temp, 0),
+            % if statements also accepts lists
+            parserl:replace_function(
+                fun(#{replace_temp_fun_by := FunBody} = Ctx0) ->
+                    % Context can be transformed.
+                    Ctx = maps:without([replace_temp_fun_by], Ctx0),
+                    {temp, 0, FunBody, Ctx}
+                end,
+                [export]
+            )
+            % The function above can be written as
+            %
+            %     parserl:replace_function(temp, 0, "bar() -> bar.", [export])
+            %
         ),
-
-        parserl_trans:if_false(
-            parserl_trans:function_exists({handle_params, 2}),
-            parserl_trans:insert_function(
-                "handle_params(_Params, Socket) -> {noreply, Socket}.",
-                [export])
-        ),
-
-        parserl_trans:debug()
+        parserl:write_file(["/tmp", parserl_trans:module_suffix(Module, ".erl")])
+        % =NOTICE REPORT==== 25-Mar-2023::01:27:53.989528 ===
+        % File saved in /tmp/parserl_example.erl
+        % ---
+        % -module(parserl_example).
+        % -export([foo/2]).
+        % -export([bar/0]).
+        % init() ->
+        %     io:format("Module ~p loaded.", [parserl_example]).
+        % foo(Foo, _) when is_atom(Foo) ->
+        %     foo;
+        % foo(Foo, Bar) ->
+        %     case Foo == Bar of
+        %         true ->
+        %             equal;
+        %         false ->
+        %             not_equal
+        %     end.
+        % bar() ->
+        %     bar.
+        %
+        %
+        % ---
     ]).
+
+get_module(Module) when is_atom(Module) ->
+    Module;
+get_module(Forms) when is_list(Forms) ->
+    parserl_trans:get_module(Forms).
 ```
 
-### #2
+## TODO
 
-```erlang
--module(eel_transform).
+- Improve this README file
+- Functions documentations
+- Functions specs
+- Test everything
 
--export([parse_transform/2]).
+## License
 
-parse_transform(Forms, _Options) ->
-    case parserl:find_all_attributes(eel_fun, Forms) of
-        [] ->
-            logger:warning("No eel attribute found in ~p", [parserl:get_module(Forms)]),
-            Forms;
-
-        Attrs ->
-            GlobalOpts = #{ if_function_exists => append },
-            parserl_trans:form(Forms, GlobalOpts, [
-                parserl_trans:remove_attribute(eel_fun),
-                parserl_trans:foreach(
-                    fun(Attr) ->
-                        Args = parserl:eval(erl_syntax:attribute_arguments(Attr)),
-                        {FunName, Kind, FunOpts} = Args,
-                        {ok, {Static, AST}} =
-                            case Kind of
-                                {bin, Bin, CompOpts} ->
-                                    eel:compile(Bin, CompOpts);
-
-                                {file, Filename, CompOpts} ->
-                                    eel:compile_file(Filename, CompOpts)
-                            end,
-                        Vars = eel_compiler:ast_vars(AST),
-                        Opts = #{ env => #{fun_name => FunName}
-                                , export => maps:get(export, FunOpts, true) },
-                        [
-                            parserl_trans:insert_function(
-                                "static('@fun_name') -> _@static.",
-                                #{ env => #{ fun_name => FunName
-                                           , static => Static } }),
-                            parserl_trans:insert_function(
-                                "ast('@fun_name') -> _@ast.",
-                                #{ env => #{ fun_name => FunName
-                                           , ast => AST } }),
-                            parserl_trans:insert_function(
-                                "vars('@fun_name') -> _@vars.",
-                                #{ env => #{ fun_name => FunName
-                                           , vars => Vars } }),
-                            parserl_trans:if_else(
-                                Vars =:= [],
-                                [
-                                    parserl_trans:if_else(
-                                        maps:get(eval, FunOpts, false),
-                                        parserl_trans:insert_function(
-                                            ["'@fun_name'() ->",
-                                             "    eel_evaluator:eval(eel_renderer:render(",
-                                             "        #{ static => static('@fun_name')",
-                                             "         , ast => ast('@fun_name')",
-                                             "         , vars => vars('@fun_name') }",
-                                             "    ))."], Opts),
-                                        parserl_trans:insert_function(
-                                            ["'@fun_name'() ->",
-                                             "    eel_renderer:render(",
-                                             "        #{ static => static('@fun_name')",
-                                             "         , ast => ast('@fun_name')",
-                                             "         , vars => vars('@fun_name') }",
-                                             "    )."], Opts)
-                                    )
-                                ],
-                                [
-                                    parserl_trans:if_else(
-                                        maps:get(eval, FunOpts, false),
-                                        parserl_trans:insert_function(
-                                            ["'@fun_name'(Bindings) ->",
-                                             "    eel_evaluator:eval(eel_renderer:render(",
-                                             "        Bindings,",
-                                             "        #{ static => static('@fun_name')",
-                                             "         , ast => ast('@fun_name')",
-                                             "         , vars => vars('@fun_name') }",
-                                             "    ))."], Opts),
-                                        parserl_trans:insert_function(
-                                            ["'@fun_name'(Bindings) ->",
-                                             "    eel_renderer:render(",
-                                             "        Bindings,",
-                                             "        #{ static => static('@fun_name')",
-                                             "         , ast => ast('@fun_name')",
-                                             "         , vars => vars('@fun_name') }",
-                                             "    )."], Opts)
-                                    )
-                                ]
-                            )
-                        ]
-                    end,
-                    Attrs
-                )
-            ])
-    end.
-```
+`parserl` is under the Apache 2.0 License. Please refer to the included [LICENSE](LICENSE.md) file for more information.
 
 ## Credits
 

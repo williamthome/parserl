@@ -1,3 +1,9 @@
+%%%-----------------------------------------------------------------------------
+%%% @author William Fank Thomé [https://github.com/williamthome]
+%%% @copyright 2023 William Fank Thomé
+%%% @doc Module with helpers functions.
+%%% @end
+%%%-----------------------------------------------------------------------------
 -module(parserl_trans).
 
 %% API
