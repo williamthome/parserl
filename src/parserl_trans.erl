@@ -16,7 +16,7 @@
         , unexport_function/4, is_function_exported/2, is_function_exported/3
         , find_function/3, function_exists/3, debug/1, restore/1, write_file/2
         , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
-        , log/4, log_or_raise/4, log_or_raise/5 ]).
+        , log/4, log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3 ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -470,6 +470,15 @@ log_or_raise(warning, Reason, StringOrReport, _, #{warnings_as_errors := true}) 
 log_or_raise(Level, _, StringOrReport, Metadata, Opts) ->
     log(Level, StringOrReport, Metadata, Opts).
 
+is_attribute(Name, Form) ->
+    erl_syntax:type(Form) =:= attribute
+    andalso attribute_name(Form) =:= Name.
+
+is_function(Name, Arity, Form) ->
+    erl_syntax:type(Form) =:= function
+    andalso function_name(Form) =:= Name
+    andalso erl_syntax:function_arity(Form) =:= Arity.
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
@@ -615,15 +624,6 @@ parse_trans_context(Forms) ->
 
 parse_trans_context(Forms, Options) ->
     parse_trans:initial_context(normalize(Forms), Options).
-
-is_attribute(Name, Form) ->
-    erl_syntax:type(Form) =:= attribute
-    andalso attribute_name(Form) =:= Name.
-
-is_function(Name, Arity, Form) ->
-    erl_syntax:type(Form) =:= function
-    andalso function_name(Form) =:= Name
-    andalso erl_syntax:function_arity(Form) =:= Arity.
 
 attribute_name(Form) ->
     erl_syntax:atom_value(erl_syntax:attribute_name(Form)).
