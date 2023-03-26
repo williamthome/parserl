@@ -296,8 +296,8 @@ map(Fun) when is_function(Fun, 1) ->
     end;
 map(Fun) when is_function(Fun, 2) ->
     fun(Forms, Context, _) ->
-        lists:foldr( fun(Form, {F, C}) -> Fun(Form, F, C) end
-                   , {Forms, Context}
+        lists:foldr( fun(Form, C) -> Fun(Form, C) end
+                   , Context
                    , Forms )
     end.
 
