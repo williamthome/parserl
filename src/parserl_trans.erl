@@ -122,8 +122,10 @@ find_attribute(_, []) ->
 find_attribute(Name, Forms) when is_tuple(Forms) ->
     find_attribute(Name, [Forms]).
 
-find_all_attributes(Name, Forms) ->
-    find_all_attributes(Name, Forms, []).
+find_all_attributes(Names, Forms) when is_list(Names) ->
+    find_all_attributes(Names, Forms, []);
+find_all_attributes(Name, Forms) when is_atom(Name) ->
+    find_all_attributes([Name], Forms).
 
 attribute_exists(Name, Forms) ->
     case find_attribute(Name, Forms) of
@@ -483,14 +485,14 @@ is_function(Name, Arity, Form) ->
 %%% Internal functions
 %%%=============================================================================
 
-find_all_attributes(Name, [H | T], Acc) ->
-    case is_attribute(Name, H) of
-        true ->
-            find_all_attributes(Name, T, [H | Acc]);
+find_all_attributes(Names, [H | T], Acc) ->
+    find_all_attributes(Names, T, lists:foldl( fun(Name, Acc1) ->
+                                                   case is_attribute(Name, H) of
+                                                       true -> [H | Acc1];
 
-        false ->
-            find_all_attributes(Name, T, Acc)
-    end;
+                                                       false -> Acc1
+                                                   end
+                                               end, Acc, Names ));
 find_all_attributes(_, [], Acc) ->
     lists:reverse(Acc).
 
