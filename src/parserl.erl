@@ -10,12 +10,13 @@
 -export([ transform/2, transform/3, transform/4, insert_above/1, insert_below/1
         , insert_attribute/1, insert_attribute/2, remove_attribute/1
         , attribute_exists/1, insert_function/1, insert_function/2
-        , replace_function/1, replace_function/2, replace_function/4
-        , replace_function/3, export_function/1, export_function/2
-        , unexport_function/1, unexport_function/2, function_exists/1
-        , function_exists/2, debug/0, write_file/1, if_true/2, if_false/2
-        , if_else/3, restore/0, map/1, filter/1, filtermap/1, foreach/2, log/2
-        , log/3, log_or_raise/3, log_or_raise/4 ]).
+        , insert_function/3, insert_function/4, replace_function/1
+        , replace_function/2, replace_function/4, replace_function/3
+        , export_function/1, export_function/2, unexport_function/1
+        , unexport_function/2, function_exists/1, function_exists/2, debug/0
+        , write_file/1, if_true/2, if_false/2, if_else/3, restore/0, map/1
+        , filter/1, filtermap/1, foreach/2, log/2, log/3, log_or_raise/3
+        , log_or_raise/4 ]).
 
 %%%=============================================================================
 %%% API
@@ -91,59 +92,71 @@ attribute_exists(Name) ->
         {parserl_trans:attribute_exists(Name, Forms), Context}
     end.
 
-insert_function(FunOrText) ->
-    insert_function(FunOrText, []).
+insert_function(FunTextOrAST) ->
+    insert_function(FunTextOrAST, []).
 
 insert_function(Fun, Opts) when is_function(Fun, 1) ->
     fun(Forms, Context0, GlobalOpts) ->
-        {Text, Context} = Fun(Context0),
-        {parserl_trans:insert_function( Text
+        {TextOrAST, Context} = Fun(Context0),
+        {parserl_trans:insert_function( TextOrAST
                                       , Forms
                                       , merge_opts(Opts, GlobalOpts) ), Context}
     end;
-insert_function(Text, Opts) ->
+insert_function(TextOrAST, Opts) ->
     fun(Forms, Context, GlobalOpts) ->
-        {parserl_trans:insert_function( Text
+        {parserl_trans:insert_function( TextOrAST
                                       , Forms
                                       , merge_opts(Opts, GlobalOpts) ), Context}
     end.
 
-replace_function(FunOrText) ->
-    replace_function(FunOrText, []).
+insert_function(Name, Arity, TextOrAST) ->
+    insert_function(Name, Arity, TextOrAST, []).
+
+insert_function(Name, Arity, TextOrAST, Opts) ->
+    fun(Forms, Context, GlobalOpts) ->
+        {parserl_trans:insert_function( Name
+                                     , Arity
+                                     , TextOrAST
+                                     , Forms
+                                     , merge_opts(Opts, GlobalOpts) ), Context}
+    end.
+
+replace_function(FunTextOrAST) ->
+    replace_function(FunTextOrAST, []).
 
 replace_function(Fun, Opts) when is_function(Fun, 1) ->
     fun(Forms, Context0, GlobalOpts) ->
         case Fun(Context0) of
-            {Text, Context} ->
-                { parserl_trans:replace_function( Text
+            {TextOrAST, Context} ->
+                { parserl_trans:replace_function( TextOrAST
                                                 , Forms
                                                 , merge_opts(Opts, GlobalOpts) )
                 , Context };
 
-            {Name, Arity, Text, Context} ->
+            {Name, Arity, TextOrAST, Context} ->
                 { parserl_trans:replace_function( Name
                                                 , Arity
-                                                , Text
+                                                , TextOrAST
                                                 , Forms
                                                 , merge_opts(Opts, GlobalOpts) )
                 , Context }
         end
     end;
-replace_function(Text, Opts) ->
+replace_function(TextOrAST, Opts) ->
     fun(Forms, Context, GlobalOpts) ->
-        {parserl_trans:replace_function( Text
+        {parserl_trans:replace_function( TextOrAST
                                        , Forms
                                        , merge_opts(Opts, GlobalOpts) ), Context}
     end.
 
-replace_function(Name, Arity, Text) ->
-    replace_function(Name, Arity, Text, []).
+replace_function(Name, Arity, TextOrAST) ->
+    replace_function(Name, Arity, TextOrAST, []).
 
-replace_function(Name, Arity, Text, Opts) ->
+replace_function(Name, Arity, TextOrAST, Opts) ->
     fun(Forms, Context, GlobalOpts) ->
         {parserl_trans:replace_function( Name
                                        , Arity
-                                       , Text
+                                       , TextOrAST
                                        , Forms
                                        , merge_opts(Opts, GlobalOpts) ), Context}
     end.

@@ -10,13 +10,14 @@
 -export([ quote/1, quote/2, unquote/1, unquote/2, insert_above/2, insert_below/2
         , insert_attribute/2, insert_attribute/3, remove_attribute/2
         , find_attribute/2, find_all_attributes/2, attribute_exists/2
-        , insert_function/2, insert_function/3, replace_function/2
-        , replace_function/3, replace_function/5, export_function/3
-        , export_function/4, unexport_function/2, unexport_function/3
-        , unexport_function/4, is_function_exported/2, is_function_exported/3
-        , find_function/3, function_exists/3, debug/1, restore/1, write_file/2
-        , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
-        , log/4, log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3 ]).
+        , insert_function/2, insert_function/3, insert_function/4
+        , insert_function/5, replace_function/2, replace_function/3
+        , replace_function/5, export_function/3, export_function/4
+        , unexport_function/2, unexport_function/3, unexport_function/4
+        , is_function_exported/2, is_function_exported/3, find_function/3
+        , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
+        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
+        , log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3 ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -139,11 +140,18 @@ attribute_exists(Name, Forms) ->
 insert_function(Text, Forms) ->
     insert_function(Text, Forms, []).
 
-insert_function(Text0, Forms0, Opts) ->
-    Forms1 = normalize(Forms0),
+insert_function(Text0, Forms, Opts) ->
     Text = flatten_text(Text0),
     Name = guess_fun_name(Text, Opts),
     Arity = guess_fun_arity(Text),
+    AST = quote(Text, get_env(Opts)),
+    insert_function(Name, Arity, AST, Forms, Opts).
+
+insert_function(Name, Arity, AST, Forms) ->
+    insert_function(Name, Arity, AST, Forms, []).
+
+insert_function(Name, Arity, AST, Forms0, Opts) ->
+    Forms1 = normalize(Forms0),
     case function_exists(Name, Arity, Forms1) of
         true ->
             lists:map(
@@ -151,7 +159,7 @@ insert_function(Text0, Forms0, Opts) ->
                     case is_function(Name, Arity, Form) of
                         true ->
                             Fun = erl_syntax:revert(Form),
-                            Tmp = erl_syntax:revert(quote(Text, get_env(Opts))),
+                            Tmp = erl_syntax:revert(AST),
                             NewClauses = erl_syntax:function_clauses(Tmp),
                             attach_clauses(Fun, NewClauses, Opts);
 
@@ -163,8 +171,7 @@ insert_function(Text0, Forms0, Opts) ->
             );
 
         false ->
-            Abstract = quote(Text, get_env(Opts)),
-            Forms = insert_below(Abstract, Forms1),
+            Forms = insert_below(AST, Forms1),
             case get_value(export, Opts, false) of
                 true ->
                     export_function(Name, Arity, Forms, Opts);
@@ -183,29 +190,31 @@ replace_function(Text, Forms, Opts) ->
     Arity = get_value(arity, Opts, guess_fun_arity(Body)),
     replace_function(Name, Arity, Text, Forms, Opts).
 
-replace_function(Name, Arity, Text, Forms0, Opts) ->
+replace_function(Name, Arity, Text, Forms, Opts) when is_list(Text); is_binary(Text) ->
+    AST = quote(Text, get_env(Opts)),
+    replace_function(Name, Arity, AST, Forms, Opts);
+replace_function(Name, Arity, AST, Forms0, Opts) ->
     Forms1 = normalize(Forms0),
     case function_exists(Name, Arity, Forms1) of
         true ->
-            Form = quote(Text, get_env(Opts)),
             Forms2 = parse_trans:replace_function( Name
                                                  , Arity
-                                                 , Form
+                                                 , AST
                                                  , Forms1
                                                  , proplist(Opts) ),
-            Forms =
-                case is_function_exported(Name, Arity, Forms2) of
-                    true ->
-                        unexport_function(Name, Arity, Forms2);
+            NewName = erl_syntax:atom_value(erl_syntax:function_name(AST)),
+            NewArity = erl_syntax:function_arity(AST),
+            ShouldUnexportOldFun = is_function_exported(Name, Arity, Forms0) andalso
+                                   (Name =/= NewName orelse Arity =/= NewArity),
+            Forms = case ShouldUnexportOldFun of
+                        true ->
+                            unexport_function(Name, Arity, Forms2);
 
-                    false ->
-                        Forms2
-                end,
-            case get_value(export, Opts, false) of
+                        false ->
+                            Forms2
+                    end,
+            case ShouldUnexportOldFun orelse get_value(export, Opts, false) of
                 true ->
-                    NewBody = flatten_text(Text),
-                    NewName = guess_fun_name(NewBody, Opts),
-                    NewArity = guess_fun_arity(NewBody),
                     export_function(NewName, NewArity, Forms, Opts);
 
                 false ->
