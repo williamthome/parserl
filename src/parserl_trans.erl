@@ -27,8 +27,10 @@
 %%% API
 %%%=============================================================================
 
-quote(Text) ->
-    quote(Text, []).
+quote(Text) when is_list(Text); is_binary(Text) ->
+    quote(Text, []);
+quote(Term) ->
+    erl_syntax:revert(erl_syntax:abstract(Term)).
 
 quote(Text0, Env0) when is_list(Text0); is_binary(Text0) ->
     Text = flatten_text(Text0),
