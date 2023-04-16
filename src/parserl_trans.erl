@@ -17,7 +17,8 @@
         , is_function_exported/2, is_function_exported/3, find_function/3
         , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
         , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
-        , log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3 ]).
+        , log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3
+        , get_errs_and_warns/1, get_errs_and_warns/2 ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -491,6 +492,17 @@ is_function(Name, Arity, Form) ->
     erl_syntax:type(Form) =:= function
     andalso function_name(Form) =:= Name
     andalso erl_syntax:function_arity(Form) =:= Arity.
+
+get_errs_and_warns(Forms) ->
+    get_errs_and_warns(Forms, []).
+
+get_errs_and_warns(Forms, Opts) ->
+    case erl_lint:exprs_opt(normalize(Forms), [], Opts) of
+        {ok, Warns} ->
+            {[], Warns};
+        {error, Errs, Warns} ->
+            {Errs, Warns}
+    end.
 
 %%%=============================================================================
 %%% Internal functions
