@@ -18,7 +18,7 @@
         , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
         , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
         , log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3
-        , get_errs_and_warns/1, get_errs_and_warns/2 ]).
+        , get_errs_and_warns/1, get_errs_and_warns/2, get_unbound_vars/1 ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -504,6 +504,44 @@ get_errs_and_warns(Forms, Opts) ->
             {Errs, Warns}
     end.
 
+get_unbound_vars(Forms) ->
+    Opts = [ nowarn_underscore_match
+           , nowarn_export_all
+           , nowarn_export_vars
+           , nowarn_shadow_vars
+           , nowarn_unused_import
+           , nowarn_unused_function
+           , nowarn_unused_type
+           , nowarn_bif_clash
+           , nowarn_unused_record
+           , nowarn_deprecated_function
+           , nowarn_deprecated_type
+           , nowarn_obsolete_guard
+           , nowarn_untyped_record
+           , nowarn_missing_spec
+           , nowarn_missing_spec_all
+           , nowarn_removed
+           , nowarn_nif_inline
+           , nowarn_keywords ],
+    lists:reverse(
+        lists:foldl(
+            fun(Form, Acc) ->
+                {Errs, _} = get_errs_and_warns(Form, Opts),
+                lists:foldl(
+                    fun({"nofile", Errs1}, Acc1) ->
+                        lists:foldl(
+                            fun(Err, Acc2) ->
+                                case is_unbound_var_err(Err) of
+                                    {true, Var} ->
+                                        [Var | Acc2];
+
+                                    false ->
+                                        Acc2
+                                end
+                            end, Acc1, Errs1 )
+                    end, Acc, Errs )
+            end, [], normalize(Forms) ) ).
+
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
@@ -688,6 +726,11 @@ normalize_filename(Filename) when is_list(Filename) ->
         false ->
             filename:join(Filename)
     end.
+
+is_unbound_var_err({_Line, erl_lint, {unbound_var, Var}}) ->
+    {true, Var};
+is_unbound_var_err(_) ->
+    false.
 
 %%%=============================================================================
 %%% Test functions
