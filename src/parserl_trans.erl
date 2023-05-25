@@ -15,10 +15,11 @@
         , replace_function/5, export_function/3, export_function/4
         , unexport_function/2, unexport_function/3, unexport_function/4
         , is_function_exported/2, is_function_exported/3, find_function/3
-        , function_exists/3, debug/1, restore/1, write_file/2, get_module/1
-        , module_prefix/2, module_suffix/2, eval/1, eval/2, log/3, log/4
-        , log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3
-        , get_errs_and_warns/1, get_errs_and_warns/2, get_unbound_vars/1 ]).
+        , function_exists/3, deepmap/2, debug/1, restore/1, write_file/2
+        , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
+        , log/4, log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3
+        , get_errs_and_warns/1, get_errs_and_warns/2, get_unbound_vars/1
+        ]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -408,6 +409,26 @@ function_exists(Name, Arity, Forms) ->
         false ->
             false
     end.
+
+deepmap(Fun, Forms) when is_function(Fun, 1), is_list(Forms) ->
+    do_deepmap(Forms, Fun).
+
+do_deepmap({match, Pos, A, B}, F) ->
+    F({match, Pos, do_deepmap(A, F), do_deepmap(B, F)});
+do_deepmap({call, Pos, Fun, Args}, F) ->
+    F({call, Pos, Fun, do_deepmap(Args, F)});
+do_deepmap({clause, CPos, CPattern, CGuards, CBody}, F) ->
+    F({clause, CPos, do_deepmap(CPattern, F), do_deepmap(CGuards, F), do_deepmap(CBody, F)});
+do_deepmap({function, Pos, Name, Arity, Clauses}, F) ->
+    F({function, Pos, Name, Arity, do_deepmap(Clauses, F)});
+do_deepmap({'case', Pos, Cond, Clauses}, F) ->
+    F({'case', Pos, do_deepmap(Cond, F), do_deepmap(Clauses, F)});
+do_deepmap({'if', Pos, Clauses}, F) ->
+    F({'if', Pos, do_deepmap(Clauses, F)});
+do_deepmap(Forms, F) when is_list(Forms) ->
+    lists:map(fun(Form) -> do_deepmap(Form, F) end, Forms);
+do_deepmap(Form, F) ->
+    F(Form).
 
 pprint(Forms) ->
     unicode:characters_to_binary(io_lib:format("~s~n", [
