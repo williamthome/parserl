@@ -18,7 +18,8 @@
         , function_exists/3, deepmap/2, debug/1, restore/1, write_file/2
         , get_module/1, module_prefix/2, module_suffix/2, eval/1, eval/2, log/3
         , log/4, log_or_raise/4, log_or_raise/5, is_attribute/2, is_function/3
-        , get_errs_and_warns/1, get_errs_and_warns/2, get_unbound_vars/1
+        , is_function_call/4, get_errs_and_warns/1, get_errs_and_warns/2
+        , get_unbound_vars/1
         ]).
 
 -ifdef(TEST).
@@ -513,6 +514,15 @@ is_function(Name, Arity, Form) ->
     erl_syntax:type(Form) =:= function
     andalso function_name(Form) =:= Name
     andalso erl_syntax:function_arity(Form) =:= Arity.
+
+is_function_call( Module
+                , Name
+                , Arity
+                , {call, _,  {remote, _, {_, _, Module}, {_, _, Name}}, Args}
+                ) when length(Args) =:= Arity ->
+    true;
+is_function_call(_, _, _, _) ->
+    false.
 
 get_errs_and_warns(Forms) ->
     get_errs_and_warns(Forms, []).
