@@ -317,7 +317,7 @@ map(Fun) when is_function(Fun, 2) ->
 
 deepmap(Fun) when is_function(Fun, 1) ->
     fun(Forms, Context, _) ->
-        {parse_trans:deepmap(Fun, Forms), Context}
+        {parserl_trans:deepmap(Fun, Forms), Context}
     end.
 
 filter(Predicate) when is_function(Predicate, 1) ->
