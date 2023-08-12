@@ -419,13 +419,19 @@ do_deepmap({match, Pos, A, B}, F) ->
 do_deepmap({call, Pos, Fun, Args}, F) ->
     F({call, Pos, Fun, do_deepmap(Args, F)});
 do_deepmap({clause, CPos, CPattern, CGuards, CBody}, F) ->
-    F({clause, CPos, do_deepmap(CPattern, F), do_deepmap(CGuards, F), do_deepmap(CBody, F)});
+    F({clause, CPos, do_deepmap(CPattern, F)
+                   , do_deepmap(CGuards, F)
+                   , do_deepmap(CBody, F)});
 do_deepmap({function, Pos, Name, Arity, Clauses}, F) ->
     F({function, Pos, Name, Arity, do_deepmap(Clauses, F)});
 do_deepmap({'case', Pos, Cond, Clauses}, F) ->
     F({'case', Pos, do_deepmap(Cond, F), do_deepmap(Clauses, F)});
 do_deepmap({'if', Pos, Clauses}, F) ->
     F({'if', Pos, do_deepmap(Clauses, F)});
+do_deepmap({tuple, Pos, Forms}, F) ->
+    F({tuple, Pos, do_deepmap(Forms, F)});
+do_deepmap({cons, Pos, Form, Next}, F) ->
+    F({cons, Pos, do_deepmap(Form, F), do_deepmap(Next, F)});
 do_deepmap(Forms, F) when is_list(Forms) ->
     lists:map(fun(Form) -> do_deepmap(Form, F) end, Forms);
 do_deepmap(Form, F) ->
