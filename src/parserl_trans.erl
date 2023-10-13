@@ -145,6 +145,10 @@ attribute_exists(Name, Forms) ->
 insert_function(Text, Forms) ->
     insert_function(Text, Forms, []).
 
+insert_function(AST, Forms, Opts) when is_tuple(AST) ->
+    Name = function_name(AST),
+    Arity = erl_syntax:function_arity(AST),
+    insert_function(Name, Arity, AST, Forms, Opts);
 insert_function(Text0, Forms, Opts) ->
     Text = flatten_text(Text0),
     Name = guess_fun_name(Text, Opts),
