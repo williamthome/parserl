@@ -61,17 +61,9 @@ unquote(Forms, Opts) when is_list(Forms) ->
     flatten_text(lists:map(fun(Form) -> unquote(Form, Opts) end, Forms)).
 
 insert_above(Form, Forms0) ->
-    Forms1 = normalize(Forms0),
-    Context = parse_trans_context(Forms1),
-    {Forms, _} = parse_trans:do_transform( fun(function, F, _, false) ->
-                                                  {Form, F, [], false, true};
-
-                                              (_, F, _, Acc) ->
-                                                  {F, false, Acc} end
-                                          , false
-                                          , Forms1
-                                          , Context ),
-    Forms.
+    Forms = normalize(Forms0),
+    Context = parse_trans_context(Forms),
+    parse_trans:do_insert_forms(above, normalize(Form), Forms, Context).
 
 insert_below(Form, [H | T] = Forms) ->
     case erl_syntax:type(H) of
@@ -247,7 +239,8 @@ export_function(Name, Arity, Forms0, Opts) ->
     Forms = normalize(Forms0),
     case not is_function_exported(Name, Arity, Forms) of
         true ->
-            parse_trans:export_function(Name, Arity, Forms);
+            Form = {attribute, 1, export, [{Name, Arity}]},
+            insert_above(Form, Forms);
 
         false ->
             log_or_raise( warning
